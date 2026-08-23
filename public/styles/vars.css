@@ -1,0 +1,24 @@
+@import url("https://use.typekit.net/coc0upd.css");
+
+:root {
+  /* colors */
+  --background-color: #000;
+  --foreground-color: #fff;
+  --accent-color: #fc2;
+
+  /* fonts */
+  --main-font: "forma-djr-deck";
+  --accent-font: "caslonian-std-l";
+}
+
+/*
+font-family: forma-djr-deck, sans-serif;
+font-weight: 400;
+font-style: normal;
+*/
+
+/* 
+font-family: "caslonian-std-l", sans-serif;
+font-weight: 300;
+font-style: normal;
+*/
