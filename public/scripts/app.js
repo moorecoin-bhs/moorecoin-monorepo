@@ -12,6 +12,6 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const apiBase =
-  location.hostname === "localhost" || location.hostname === "127.0.0.1"
-    ? "http://127.0.0.1:5000"
+  location.hostname === "localhost"
+    ? "http://localhost:5050"
     : "https://api.mooreco.in";

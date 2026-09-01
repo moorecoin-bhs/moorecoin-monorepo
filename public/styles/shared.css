@@ -1,0 +1,20 @@
+#api-error-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #d32f2f;
+  color: white;
+  padding: 12px 16px;
+  text-align: center;
+  font-family: sans-serif;
+  font-size: 14px;
+  z-index: 9999;
+  display: none;
+}
+
+#api-error-banner a {
+  color: white;
+  text-decoration: underline;
+  font-weight: 600;
+}

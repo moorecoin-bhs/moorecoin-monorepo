@@ -1,9 +1,10 @@
 import "dotenv/config";
 import express from "express";
+import cors from "cors";
 import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
 
-// --- Firebase setup ---
 let serviceAccount;
 try {
   serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -15,97 +16,73 @@ try {
 initializeApp({ credential: cert(serviceAccount) });
 const db = getFirestore();
 
-// --- Express setup ---
+const corsOptions = {
+  origin: ["http://localhost:8080", "https://mooreco.in"],
+}
+
 const app = express();
-app.use(express.json());
+app.use(cors(corsOptions), express.json());
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5050;
 
-// --- Rate formulas ---
+// helpers
 const calculateExchangeRate = (t) =>
   Math.max(0.005, 1.2 * Math.exp(-0.000521 * t));
 const calculateInterestRate = (t) => 0.1 + 0.65 * Math.exp(-0.000486 * t);
 
-// --- Routes ---
-app.post("/convert", async (req, res) => {
-  const { userId, amount } = req.body;
-
-  if (!userId || typeof amount !== "number" || amount <= 0) {
-    return res.status(400).json({ error: "invalid_request" });
-  }
-
-  const userRef = db.doc(`users/${userId}`);
-  const totalsRef = db.doc("system/totals");
+async function verifyUser(request, response, next) {
+  const authHeader = request.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) return response.status(401).json({ error: "Missing token" });
 
   try {
-    const result = await db.runTransaction(async (tx) => {
-      const [userSnap, totalsSnap] = await Promise.all([
-        tx.get(userRef),
-        tx.get(totalsRef),
-      ]);
-
-      if (!userSnap.exists) throw new Error("user_not_found");
-
-      const balance = userSnap.data().balance;
-      const t = totalsSnap.exists ? totalsSnap.data().t : 0;
-
-      if (amount > balance) throw new Error("insufficient_balance");
-
-      const rate = calculateExchangeRate(t);
-      const converted = amount * rate;
-      const newBalance = balance - amount;
-
-      tx.update(userRef, { balance: newBalance });
-
-      return { converted, newBalance, rateUsed: rate };
-    });
-
-    res.json(result);
+    const decoded = await getAuth().verifyIdToken(token);
+    request.uid = decoded.uid; // passed google's checks. if something was wrong, it would have thrown an error, caught below
+    request.decodedToken = decoded;
+    next();
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    return response.status(401).json({ error: "Invalid or expired token" });
+  }
+}
+
+// api routes
+app.get("/", (_, response) => {
+  response.send("Hello, Moorecoin API!");
+});
+
+app.post("/auth/session", verifyUser, async (request, response, next) => {
+  try {
+    const uid = request.uid;
+    const userRef = db.collection("users").doc(uid);
+    const snapshot = await userRef.get();
+
+    let user;
+    let isNewUser = false;
+
+    if (!snapshot.exists) {
+      user = {
+        uid,
+        email: request.decodedToken.email,
+        role: "student",
+        createdAt: new Date(),
+        moorecoins: 1,
+      };
+
+      await userRef.set(user);
+      isNewUser = true;
+    } else {
+      user = snapshot.data();
+    }
+
+    response.json({ user, isNewUser });
+  } catch (err) {
+    next(err);
   }
 });
 
-app.post("/accrue-interest", async (req, res) => {
-  const { userId } = req.body;
-
-  if (!userId) {
-    return res.status(400).json({ error: "invalid_request" });
-  }
-
-  const userRef = db.doc(`users/${userId}`);
-  const totalsRef = db.doc("system/totals");
-
-  try {
-    const result = await db.runTransaction(async (tx) => {
-      const [userSnap, totalsSnap] = await Promise.all([
-        tx.get(userRef),
-        tx.get(totalsRef),
-      ]);
-
-      if (!userSnap.exists) throw new Error("user_not_found");
-
-      const balance = userSnap.data().balance;
-      const t = totalsSnap.exists ? totalsSnap.data().t : 0;
-
-      const rate = calculateInterestRate(t);
-      const newBalance = balance + balance * rate;
-
-      tx.update(userRef, { balance: newBalance });
-
-      return { newBalance, rateUsed: rate };
-    });
-
-    res.json(result);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// --- Error handler (catches anything thrown/rejected in routes above) ---
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: "internal_error" });
+app.use((error, _, response, __) => {
+  console.error(error);
+  response.status(500).json({ error: "internal_error" });
 });
 
 app.listen(port, () => console.log(`Listening on ${port}`));
