@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { initializeApp, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 
 let serviceAccount;
@@ -18,7 +18,7 @@ const db = getFirestore();
 
 const corsOptions = {
   origin: ["http://localhost:8080", "https://mooreco.in"],
-}
+};
 
 const app = express();
 app.use(cors(corsOptions), express.json());
@@ -53,13 +53,14 @@ app.get("/", (_, response) => {
 app.post("/auth/session", verifyUser, async (request, response, next) => {
   try {
     const uid = request.uid;
+
     const userRef = db.collection("users").doc(uid);
-    const snapshot = await userRef.get();
+    const userSnapshot = await userRef.get();
 
     let user;
     let isNewUser = false;
 
-    if (!snapshot.exists) {
+    if (!userSnapshot.exists) {
       user = {
         uid,
         email: request.decodedToken.email,
@@ -68,10 +69,23 @@ app.post("/auth/session", verifyUser, async (request, response, next) => {
         moorecoins: 1,
       };
 
-      await userRef.set(user);
+      const batch = db.batch();
+      batch.set(userRef, user);
+
+      const statsRef = db.collection("stats").doc("totals");
+      batch.set(
+        statsRef,
+        {
+          users: FieldValue.increment(1),
+          moorecoins: FieldValue.increment(1),
+        },
+        { merge: true },
+      );
+
+      await batch.commit();
       isNewUser = true;
     } else {
-      user = snapshot.data();
+      user = userSnapshot.data();
     }
 
     response.json({ user, isNewUser });
