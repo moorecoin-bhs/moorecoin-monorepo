@@ -77,7 +77,8 @@ app.post("/auth/session", verifyUser, async (request, response, next) => {
         statsRef,
         {
           users: FieldValue.increment(1),
-          moorecoins: FieldValue.increment(1),
+          moorecoinsIssued: FieldValue.increment(1),
+          moorecoinsCirculating: FieldValue.increment(1),
         },
         { merge: true },
       );
