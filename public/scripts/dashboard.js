@@ -1,3 +1,18 @@
+import { app } from "./app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+
+const auth = getAuth(app);
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user?.uid) {
+    window.location.href = "./index.html";
+    return;
+  }
+});
+
 function setActiveNavItem() {
   const hash = location.hash || "#dashboard";
   const items = document.querySelectorAll(".sidebar li");
@@ -22,9 +37,6 @@ function setActiveNavItem() {
   }
 }
 
-window.addEventListener("hashchange", setActiveNavItem);
-document.addEventListener("DOMContentLoaded", setActiveNavItem);
-
 function wireSidebarToggle() {
   const toggle = document.querySelector(".sidebar-toggle");
   const sidebar = document.querySelector(".sidebar");
@@ -33,4 +45,17 @@ function wireSidebarToggle() {
   });
 }
 
+async function handleSignOut() {
+  try {
+    await auth.signOut();
+  } catch (err) {
+    console.error("Sign out failed", err);
+  }
+}
+
+const signOutButton = document.getElementById("sign-out");
+
+window.addEventListener("hashchange", setActiveNavItem);
+document.addEventListener("DOMContentLoaded", setActiveNavItem);
 document.addEventListener("DOMContentLoaded", wireSidebarToggle);
+signOutButton.addEventListener("click", handleSignOut);

@@ -45,6 +45,19 @@ async function verifyUser(request, response, next) {
   }
 }
 
+function generatePublicUid(name, email) {
+  const stripEmailRegex = /@.+$/;
+  const studentId = email.replace(stripEmailRegex, "");
+  const shortStudentId = studentId.slice(-3);
+
+  const safeName = name?.trim() || "Unknown User";
+  const nameParts = safeName.split(" ").filter(Boolean);
+  const firstName = nameParts[0];
+  const lastName = nameParts[nameParts.length - 1];
+
+  return `${firstName[0]}${lastName[0]}${shortStudentId}`.toUpperCase();
+}
+
 // api routes
 app.get("/", (_, response) => {
   response.send("Hello, Moorecoin API!");
@@ -60,10 +73,15 @@ app.post("/auth/session", verifyUser, async (request, response, next) => {
     let user;
     let isNewUser = false;
 
+    const name = request.decodedToken.name;
+    const email = request.decodedToken.email;
+
     if (!userSnapshot.exists) {
       user = {
         uid,
-        email: request.decodedToken.email,
+        publicUid: generatePublicUid(name, email),
+        name,
+        email,
         role: "student",
         createdAt: new Date(),
         moorecoins: 1,

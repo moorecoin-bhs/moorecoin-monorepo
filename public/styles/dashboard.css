@@ -142,6 +142,18 @@ li > a {
   text-overflow: ellipsis;
 }
 
+.user-info-sign-out {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #ff4343;
+  cursor: pointer;
+  width: fit-content;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
 .sidebar-toggle {
   background: none;
   border: none;
