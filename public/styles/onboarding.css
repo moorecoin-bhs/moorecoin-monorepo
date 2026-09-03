@@ -1,0 +1,208 @@
+@import url("./vars.css");
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.onboarding-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+}
+
+.onboarding-logo {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.onboarding-logo img {
+  width: 28px;
+  height: 28px;
+}
+
+.onboarding-logo span {
+  font-size: 1.4rem;
+}
+
+.step-track {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--secondary-color);
+  border: 1px solid var(--foreground-color);
+  opacity: 0.3;
+  transition:
+    opacity 300ms cubic-bezier(0.19, 1, 0.22, 1),
+    background 300ms cubic-bezier(0.19, 1, 0.22, 1),
+    transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.step-dot.active {
+  opacity: 1;
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  transform: scale(1.3);
+}
+
+.step-stage {
+  position: relative;
+  width: min(520px, 90vw);
+  height: 420px;
+}
+
+.step {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.25rem;
+  opacity: 0;
+  transform: translateY(28px) scale(0.98);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    visibility 0s linear 400ms;
+}
+
+.step.active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    visibility 0s linear 0s;
+}
+
+.step h1 {
+  font-family: var(--accent-font);
+  font-weight: 300;
+  font-size: 2.2rem;
+  color: var(--accent-color);
+  margin: 0;
+}
+
+.step-subtitle {
+  max-width: 380px;
+  opacity: 0.75;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.step-subtitle strong {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+/* step 1: dropdown */
+.period-select {
+  font-family: var(--main-font);
+  font-size: 1.1rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--secondary-color);
+  background: var(--secondary-color);
+  color: var(--foreground-color);
+  min-width: 220px;
+  cursor: pointer;
+}
+
+.period-select:focus {
+  outline: 2px solid var(--accent-color);
+}
+
+/* buttons, shared across steps */
+.step-button {
+  font-family: var(--main-font);
+  font-size: 1rem;
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent-color);
+  color: #111;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 200ms ease;
+}
+
+.step-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.step-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.step-button.ghost {
+  background: transparent;
+  color: var(--foreground-color);
+  border: 1px solid var(--foreground-color);
+}
+
+.step-button-row {
+  display: flex;
+  gap: 1rem;
+}
+
+/* step 4: coin reveal */
+.coin-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 2rem 3rem;
+  border-radius: 16px;
+  background: var(--secondary-color);
+  animation: coin-pop 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.coin-reveal-amount {
+  font-family: var(--accent-font);
+  font-size: 3.5rem;
+  color: var(--accent-color);
+  line-height: 1;
+}
+
+.coin-reveal-label {
+  font-size: 0.9rem;
+  opacity: 0.6;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@keyframes coin-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-8deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}

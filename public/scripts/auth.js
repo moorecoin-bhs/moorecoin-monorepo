@@ -7,7 +7,7 @@ import {
   browserLocalPersistence,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
-import { showApiErrorBanner } from "./shared.js";
+import { showApiErrorBanner } from "./banner.js";
 
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
@@ -34,12 +34,9 @@ async function ensurePersistence() {
 
 async function routeByRole(user) {
   const token = await user.getIdToken();
-
   const sessionResponse = await fetch(`${apiBase}/auth/session`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   if (!sessionResponse.ok) {
@@ -47,10 +44,16 @@ async function routeByRole(user) {
     throw new Error(
       `API /auth/session failed (${sessionResponse.status}): ${body}`,
     );
-  } else {
-    const data = await sessionResponse.json();
-    navigateTo(data.user.role);
   }
+
+  const data = await sessionResponse.json();
+
+  if (!data.user.finishedOnboarding) {
+    window.location.href = "./onboarding.html";
+    return;
+  }
+
+  navigateTo(data.user.role);
 }
 
 async function handleSignIn() {

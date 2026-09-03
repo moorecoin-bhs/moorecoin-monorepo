@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Moorecoin - Welcome</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+    <!-- css -->
+    <link rel="stylesheet" href="styles/shared.css" />
+    <link rel="stylesheet" href="styles/onboarding.css" />
+  </head>
+  <body>
+    <div class="onboarding-shell">
+      <div class="onboarding-logo">
+        <img src="assets/favicon.svg" alt="" />
+        <span id="moorecoin">Moorecoin</span>
+      </div>
+
+      <div class="step-track">
+        <span class="step-dot active" data-step="1"></span>
+        <span class="step-dot" data-step="2"></span>
+        <span class="step-dot" data-step="3"></span>
+        <span class="step-dot" data-step="4"></span>
+      </div>
+
+      <main class="step-stage">
+        <!-- Step 1: pick period -->
+        <section class="step active" id="step-1">
+          <h1>What period are you in?</h1>
+          <p class="step-subtitle">
+            This determines your class group for shared rewards.
+          </p>
+
+          <select id="period-select" class="period-select">
+            <option value="" disabled selected>Select a period</option>
+            <option value="1">Period 1</option>
+            <option value="2">Period 2</option>
+            <option value="3">Period 3</option>
+            <option value="4">Period 4</option>
+            <option value="5">Period 5</option>
+            <option value="6">Period 6</option>
+          </select>
+
+          <button class="step-button" id="step-1-continue" disabled>
+            Continue
+          </button>
+        </section>
+
+        <!-- Step 2: confirm period -->
+        <section class="step" id="step-2">
+          <h1>Just to confirm</h1>
+          <p class="step-subtitle">
+            You selected <strong id="confirm-period-text">—</strong>. You won't
+            be able to change this yourself later — your teacher can update it
+            if needed.
+          </p>
+
+          <div class="step-button-row">
+            <button class="step-button ghost" id="step-2-back">Back</button>
+            <button class="step-button" id="step-2-confirm">
+              That's right
+            </button>
+          </div>
+        </section>
+
+        <!-- Step 3: id card -->
+        <section class="step" id="step-3">
+          <h1>Here's your Moorecoin ID</h1>
+          <p class="step-subtitle">
+            This card is how you'll appear on the public ledger.
+          </p>
+
+          <div class="tilt-card-wrap">
+            <div class="tilt-card" id="tilt-card">
+              <div class="tilt-card-shine"></div>
+              <span class="tilt-card-label">Moorecoin ID</span>
+              <span class="tilt-card-public-id" id="card-public-id">—</span>
+
+              <div class="tilt-card-row">
+                <span class="tilt-card-field-label">Name</span>
+                <span class="tilt-card-field-value" id="card-name">—</span>
+              </div>
+              <div class="tilt-card-row">
+                <span class="tilt-card-field-label">Email</span>
+                <span class="tilt-card-field-value" id="card-email">—</span>
+              </div>
+              <div class="tilt-card-row">
+                <span class="tilt-card-field-label">Period</span>
+                <span class="tilt-card-field-value" id="card-period">—</span>
+              </div>
+            </div>
+          </div>
+
+          <button class="step-button" id="step-3-continue">Continue</button>
+        </section>
+
+        <!-- Step 4: coin reveal + finish -->
+        <section class="step" id="step-4">
+          <h1>Welcome aboard</h1>
+          <p class="step-subtitle">You've been issued your first coin.</p>
+
+          <div class="coin-reveal">
+            <span class="coin-reveal-amount">+1</span>
+            <span class="coin-reveal-label">Moorecoin</span>
+          </div>
+
+          <button class="step-button" id="step-4-finish">
+            Finish &amp; go to dashboard
+          </button>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="scripts/onboarding.js"></script>
+  </body>
+</html>

@@ -13,9 +13,6 @@
     <link rel="stylesheet" href="styles/shared.css" />
     <link rel="stylesheet" href="styles/dashboard.css" />
     <link rel="stylesheet" href="styles/google-button.css" />
-
-    <!-- js -->
-    <script type="module" src="scripts/dashboard.js"></script>
   </head>
   <body>
     <div class="sidebar">
@@ -52,5 +49,152 @@
         </button>
       </div>
     </div>
+
+    <main class="content">
+      <section id="view-dashboard" class="view">
+        <h2>Dashboard</h2>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span class="stat-label">Liquid</span>
+            <span class="stat-value" id="stat-liquid">—</span>
+            <span class="stat-unit">Moorecoins</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Bonded</span>
+            <span class="stat-value" id="stat-bonded">—</span>
+            <span class="stat-unit">Moorecoins</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Pending</span>
+            <span class="stat-value" id="stat-pending">—</span>
+            <span class="stat-unit">Moorecoins</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Total</span>
+            <span class="stat-value" id="stat-total">—</span>
+            <span class="stat-unit">Moorecoins</span>
+          </div>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Bonds</h3>
+          </div>
+          <ul class="bonds-list" id="bonds-list">
+            <li class="bonds-empty">No active bonds yet.</li>
+          </ul>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Balance over time</h3>
+            <span class="panel-note">Coming soon — needs ledger history</span>
+          </div>
+          <div class="chart-placeholder">
+            <svg viewBox="0 0 400 120" class="chart-placeholder-svg">
+              <polyline
+                points="0,90 50,80 100,85 150,60 200,65 250,40 300,45 350,20 400,25"
+                fill="none"
+                stroke="var(--accent-color)"
+                stroke-width="2"
+                stroke-opacity="0.35"
+              />
+            </svg>
+            <span class="chart-placeholder-label">Placeholder data</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-account" class="view">
+        <div class="tilt-card-wrap account-card-wrap">
+          <div class="tilt-card" id="account-tilt-card">
+            <div class="tilt-card-shine"></div>
+            <span class="tilt-card-label">Moorecoin ID</span>
+            <span class="tilt-card-public-id" id="account-card-public-id"
+              >—</span
+            >
+
+            <div class="tilt-card-row">
+              <span class="tilt-card-field-label">Name</span>
+              <span class="tilt-card-field-value" id="account-card-name"
+                >—</span
+              >
+            </div>
+            <div class="tilt-card-row">
+              <span class="tilt-card-field-label">Email</span>
+              <span class="tilt-card-field-value" id="account-card-email"
+                >—</span
+              >
+            </div>
+            <div class="tilt-card-row">
+              <span class="tilt-card-field-label">Period</span>
+              <span class="tilt-card-field-value" id="account-card-period"
+                >—</span
+              >
+            </div>
+            <div class="tilt-card-row">
+              <span class="tilt-card-field-label">Moorecoins</span>
+              <span class="tilt-card-field-value" id="account-card-coins"
+                >—</span
+              >
+            </div>
+            <div class="tilt-card-row">
+              <span class="tilt-card-field-label">Member since</span>
+              <span class="tilt-card-field-value" id="account-card-since"
+                >—</span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-ledger" class="view">
+        <h2>Ledger</h2>
+      </section>
+
+      <section id="view-settings" class="view">
+        <h2>Settings</h2>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Support</h3>
+          </div>
+          <p class="settings-copy">
+            Questions about your balance, a bond, or something that looks wrong?
+            Reach out and include your Moorecoin ID so it's easy to look up.
+          </p>
+          <a class="step-button ghost" id="support-email-link" href="#">
+            Email support
+          </a>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>About</h3>
+          </div>
+          <ul class="about-list">
+            <li><span>Version</span><span>0.1.0</span></li>
+            <li><span>Public ledger</span><a href="#ledger">View ledger</a></li>
+          </ul>
+        </div>
+
+        <div class="dashboard-panel danger-zone">
+          <div class="panel-header">
+            <h3>Danger zone</h3>
+          </div>
+          <p class="settings-copy">
+            Account and period changes are handled by your teacher, not
+            automatically. If you need your account removed or corrected, send a
+            request below.
+          </p>
+          <a class="step-button danger" id="delete-request-link" href="#">
+            Request account deletion
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="scripts/dashboard/router.js"></script>
   </body>
 </html>
