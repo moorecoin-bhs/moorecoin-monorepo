@@ -80,7 +80,30 @@
         <div class="dashboard-panel">
           <div class="panel-header">
             <h3>Bonds</h3>
+            <span class="panel-note" id="bonds-summary"></span>
           </div>
+
+          <form class="bond-create-form" id="bond-create-form">
+            <input
+              type="number"
+              id="bond-amount-input"
+              class="bond-amount-input"
+              placeholder="Amount"
+              min="1"
+              step="1"
+              required
+            />
+            <button
+              type="submit"
+              class="bond-create-button"
+              id="bond-create-button"
+            >
+              Create bond
+            </button>
+          </form>
+          <span class="bond-form-preview" id="bond-form-preview"></span>
+          <span class="bond-form-error" id="bond-form-error"></span>
+
           <ul class="bonds-list" id="bonds-list">
             <li class="bonds-empty">No active bonds yet.</li>
           </ul>

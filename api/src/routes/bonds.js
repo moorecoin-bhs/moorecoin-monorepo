@@ -5,6 +5,8 @@ import {
   BOND_TERM_MS,
   calculateInterestRate,
   requirePositiveInt,
+  buildLedgerEntry,
+  toPublicBond,
 } from "../helpers/economy.js";
 
 const router = Router();
@@ -59,10 +61,15 @@ router.post("/create", verifyUser, async (request, response, next) => {
       const interestAmount = Math.round(amount * interestRate);
 
       const reserve = centralBankSnap.data()?.reserve ?? 0;
+      const bondedPrincipalHeld = statsSnap.data()?.moorecoinsBonded ?? 0;
       const outstandingLiability =
         centralBankSnap.data()?.outstandingInterestLiability ?? 0;
 
-      if (reserve - outstandingLiability < interestAmount) {
+      // Reserve currently includes every other bond's deposited
+      // principal (owed back, not free) — only what's left after
+      // that and existing interest promises can back this bond's interest.
+      const freeReserve = reserve - bondedPrincipalHeld - outstandingLiability;
+      if (freeReserve < interestAmount) {
         throw new Error("reserve_would_be_insufficient");
       }
 
@@ -70,6 +77,8 @@ router.post("/create", verifyUser, async (request, response, next) => {
       const newBond = {
         uid,
         publicUid: user.publicUid,
+        name: user.name,
+        email: user.email,
         principal: amount,
         interestRate,
         interestAmount,
@@ -91,24 +100,30 @@ router.post("/create", verifyUser, async (request, response, next) => {
         { merge: true },
       );
 
+      // Principal is deposited into the reserve while locked.
       tx.set(
         centralBankRef,
-        { outstandingInterestLiability: FieldValue.increment(interestAmount) },
+        {
+          reserve: FieldValue.increment(amount),
+          outstandingInterestLiability: FieldValue.increment(interestAmount),
+        },
         { merge: true },
       );
 
       tx.set(ledgerRef, {
-        type: "bond_created",
-        fromPublicId: user.publicUid,
-        toPublicId: "centralBank",
-        amount,
+        ...buildLedgerEntry({
+          type: "bond_created",
+          from: user,
+          to: "centralBank",
+          amount,
+          metadata: {
+            bondId: bondRef.id,
+            interestRate,
+            interestAmount,
+            maturesAt: newBond.maturesAt,
+          },
+        }),
         timestamp: FieldValue.serverTimestamp(),
-        metadata: {
-          bondId: bondRef.id,
-          interestRate,
-          interestAmount,
-          maturesAt: newBond.maturesAt,
-        },
       });
 
       return { id: bondRef.id, ...newBond };
@@ -154,8 +169,8 @@ router.post("/collect", verifyUser, async (request, response, next) => {
       if (Date.now() < bond.maturesAt) throw new Error("bond_not_matured");
 
       const reserve = centralBankSnap.data()?.reserve ?? 0;
-      if (reserve < bond.interestAmount)
-        throw new Error("reserve_insufficient");
+      const totalOwed = bond.principal + bond.interestAmount;
+      if (reserve < totalOwed) throw new Error("reserve_insufficient");
 
       const payoutAmount = bond.principal + bond.interestAmount;
 
@@ -167,14 +182,18 @@ router.post("/collect", verifyUser, async (request, response, next) => {
         {
           moorecoinsBonded: FieldValue.increment(-bond.principal),
           moorecoinsCirculating: FieldValue.increment(payoutAmount),
+          // The interest portion enters circulation for the first
+          // time here — it sat in reserve, uncounted, until now.
+          moorecoinsIssued: FieldValue.increment(bond.interestAmount),
         },
         { merge: true },
       );
 
+      // Both principal (returned) and interest (paid out) leave the reserve.
       tx.set(
         centralBankRef,
         {
-          reserve: FieldValue.increment(-bond.interestAmount),
+          reserve: FieldValue.increment(-payoutAmount),
           outstandingInterestLiability: FieldValue.increment(
             -bond.interestAmount,
           ),
@@ -183,12 +202,14 @@ router.post("/collect", verifyUser, async (request, response, next) => {
       );
 
       tx.set(ledgerRef, {
-        type: "bond_collected",
-        fromPublicId: "centralBank",
-        toPublicId: user.publicUid,
-        amount: payoutAmount,
+        ...buildLedgerEntry({
+          type: "bond_collected",
+          from: "centralBank",
+          to: user,
+          amount: payoutAmount,
+          metadata: { bondId, interestAmount: bond.interestAmount },
+        }),
         timestamp: FieldValue.serverTimestamp(),
-        metadata: { bondId, interestAmount: bond.interestAmount },
       });
 
       return payoutAmount;
@@ -209,16 +230,30 @@ router.get("/mine", verifyUser, async (request, response, next) => {
       .where("uid", "==", request.uid)
       .get();
     const bonds = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    response.json({ bonds }); // a user's own bonds — fine to include their own name/email
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Admin-only: full data including uid/name/email for every student's bonds.
+router.get("/all", verifyUser, requireAdmin, async (_, response, next) => {
+  try {
+    const snapshot = await db.collection("bonds").get();
+    const bonds = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     response.json({ bonds });
   } catch (err) {
     next(err);
   }
 });
 
-router.get("/all", verifyUser, requireAdmin, async (_, response, next) => {
+// Public: same data, identity fields stripped.
+router.get("/public", async (_, response, next) => {
   try {
     const snapshot = await db.collection("bonds").get();
-    const bonds = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const bonds = snapshot.docs.map((doc) =>
+      toPublicBond({ id: doc.id, ...doc.data() }),
+    );
     response.json({ bonds });
   } catch (err) {
     next(err);

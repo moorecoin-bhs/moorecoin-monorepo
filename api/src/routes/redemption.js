@@ -4,6 +4,7 @@ import { verifyUser } from "../middleware/auth.js";
 import {
   calculateExchangeRate,
   requirePositiveInt,
+  buildLedgerEntry,
 } from "../helpers/economy.js";
 
 const router = Router();
@@ -51,12 +52,14 @@ router.post("/create", verifyUser, async (request, response, next) => {
       );
 
       tx.set(ledgerRef, {
-        type: "redemption",
-        fromPublicId: user.publicUid,
-        toPublicId: "centralBank",
-        amount,
+        ...buildLedgerEntry({
+          type: "redemption",
+          from: user,
+          to: "centralBank",
+          amount,
+          metadata: { exchangeRate, extraCreditValue: creditValue },
+        }),
         timestamp: FieldValue.serverTimestamp(),
-        metadata: { exchangeRate, extraCreditValue: creditValue },
       });
 
       return creditValue;
