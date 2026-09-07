@@ -9,13 +9,283 @@
 
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
 
-    <!-- css -->
     <link rel="stylesheet" href="styles/shared.css" />
-    <link rel="stylesheet" href="styles/index.css" />
+    <link rel="stylesheet" href="styles/dashboard.css" />
     <link rel="stylesheet" href="styles/google-button.css" />
-
-    <!-- js -->
   </head>
   <body>
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <img src="assets/favicon.svg" alt="Moorecoin" class="sidebar-logo" />
+        <h1 id="moorecoin">Moorecoin Admin</h1>
+      </div>
+
+      <ul>
+        <li class="active"><a href="#overview">Overview</a></li>
+        <li><a href="#students">Students</a></li>
+        <li><a href="#ledger">Ledger</a></li>
+      </ul>
+      <span class="nav-indicator">←</span>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <span class="user-info-name">Jane Doe</span>
+          <span class="user-info-email">jane@brightonk12.com</span>
+          <button class="user-info-sign-out" id="sign-out">Sign out</button>
+        </div>
+
+        <button class="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <main class="content">
+      <section id="view-overview" class="view">
+        <h2>Overview</h2>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span class="stat-label">Reserve</span>
+            <span class="stat-value" id="stat-reserve">—</span>
+            <span class="stat-unit">Moorecoins</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Free reserve</span>
+            <span class="stat-value" id="stat-free-reserve">—</span>
+            <span class="stat-unit">Available to give out</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Total minted</span>
+            <span class="stat-value" id="stat-total-minted">—</span>
+            <span class="stat-unit">Lifetime</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Interest owed</span>
+            <span class="stat-value" id="stat-liability">—</span>
+            <span class="stat-unit">Outstanding</span>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span class="stat-label">Circulating</span>
+            <span class="stat-value" id="stat-circulating">—</span>
+            <span class="stat-unit">Moorecoins</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Bonded</span>
+            <span class="stat-value" id="stat-bonded-total">—</span>
+            <span class="stat-unit">Moorecoins</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Redeemed</span>
+            <span class="stat-value" id="stat-redeemed">—</span>
+            <span class="stat-unit">Moorecoins</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Students</span>
+            <span class="stat-value" id="stat-user-count">—</span>
+            <span class="stat-unit">Signed up</span>
+          </div>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Mint into reserve</h3>
+          </div>
+          <p class="settings-copy">
+            Creates new coins into the central bank reserve. Use this to fund
+            the reserve before distributing coins or paying out bond interest.
+          </p>
+          <form class="bond-create-form" id="mint-form">
+            <input
+              type="number"
+              id="mint-amount-input"
+              class="bond-amount-input"
+              placeholder="Amount"
+              min="1"
+              step="1"
+              required
+            />
+            <button type="submit" class="bond-create-button" id="mint-button">
+              Mint
+            </button>
+          </form>
+          <span class="bond-form-error" id="mint-error"></span>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Give coins to a student</h3>
+          </div>
+          <form class="admin-distribute-form" id="distribute-form">
+            <select
+              id="distribute-student-select"
+              class="period-select-inline"
+              required
+            >
+              <option value="" disabled selected>Select a student</option>
+            </select>
+            <input
+              type="number"
+              id="distribute-amount-input"
+              class="bond-amount-input"
+              placeholder="Amount"
+              min="1"
+              step="1"
+              required
+            />
+            <button
+              type="submit"
+              class="bond-create-button"
+              id="distribute-button"
+            >
+              Give
+            </button>
+          </form>
+          <span class="bond-form-error" id="distribute-error"></span>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Reward a whole period</h3>
+          </div>
+          <p class="settings-copy">
+            Gives every student in the selected period the same amount.
+          </p>
+          <form class="admin-distribute-form" id="reward-form">
+            <select
+              id="reward-period-select"
+              class="period-select-inline"
+              required
+            >
+              <option value="" disabled selected>Select a period</option>
+              <option value="1">Period 1</option>
+              <option value="2">Period 2</option>
+              <option value="3">Period 3</option>
+              <option value="4">Period 4</option>
+              <option value="5">Period 5</option>
+              <option value="6">Period 6</option>
+            </select>
+            <input
+              type="number"
+              id="reward-amount-input"
+              class="bond-amount-input"
+              placeholder="Amount each"
+              min="1"
+              step="1"
+              required
+            />
+            <button type="submit" class="bond-create-button" id="reward-button">
+              Reward period
+            </button>
+          </form>
+          <span class="bond-form-error" id="reward-error"></span>
+        </div>
+
+        <div class="dashboard-panel danger-zone">
+          <div class="panel-header">
+            <h3>Burn from reserve</h3>
+          </div>
+          <p class="settings-copy">
+            Permanently destroys coins from the reserve. This cannot be undone.
+          </p>
+          <form class="bond-create-form" id="burn-form">
+            <input
+              type="number"
+              id="burn-amount-input"
+              class="bond-amount-input"
+              placeholder="Amount"
+              min="1"
+              step="1"
+              required
+            />
+            <button type="submit" class="step-button danger" id="burn-button">
+              Burn
+            </button>
+          </form>
+          <span class="bond-form-error" id="burn-error"></span>
+        </div>
+      </section>
+
+      <section id="view-students" class="view">
+        <h2>Students</h2>
+
+        <div class="dashboard-panel">
+          <div class="student-controls">
+            <input
+              type="text"
+              id="search-students"
+              class="period-select-inline"
+              placeholder="Search by name..."
+            />
+            <select id="filter-period" class="period-select-inline">
+              <option value="">All periods</option>
+              <option value="1">Period 1</option>
+              <option value="2">Period 2</option>
+              <option value="3">Period 3</option>
+              <option value="4">Period 4</option>
+              <option value="5">Period 5</option>
+              <option value="6">Period 6</option>
+            </select>
+
+            <select id="sort-students" class="period-select-inline">
+              <option value="lastName">Sort: Last name</option>
+              <option value="coinsDesc">Sort: Coins (high to low)</option>
+              <option value="coinsAsc">Sort: Coins (low to high)</option>
+              <option value="pendingDesc">Sort: Pending extra credit</option>
+            </select>
+
+            <button class="ledger-refresh-button" id="students-refresh-button">
+              Refresh
+            </button>
+          </div>
+
+          <div class="student-table" id="student-table">
+            <div class="student-table-header">
+              <span>Name</span>
+              <span>Public ID</span>
+              <span>Period</span>
+              <span>Coins</span>
+              <span>Pending credit</span>
+              <span></span>
+            </div>
+            <div class="student-table-body" id="student-table-body">
+              <p class="bonds-empty">Loading...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-ledger" class="view">
+        <h2>Ledger</h2>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>All activity</h3>
+            <button
+              class="ledger-refresh-button"
+              id="admin-ledger-refresh-button"
+            >
+              Refresh
+            </button>
+          </div>
+          <ul class="ledger-list" id="admin-ledger-list">
+            <li class="ledger-empty">Loading...</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="scripts/admin/router.js"></script>
   </body>
 </html>

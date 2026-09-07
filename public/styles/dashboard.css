@@ -294,31 +294,9 @@ li > a {
   font-size: 0.9rem;
 }
 
-.chart-placeholder {
+.chart-container {
   position: relative;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  padding: 1rem;
-}
-
-.chart-placeholder-svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-.chart-placeholder-label {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  opacity: 0.4;
-  background: var(--secondary-color);
-  padding: 0.35rem 0.9rem;
-  border-radius: 999px;
+  height: 260px;
 }
 
 .account-card-wrap {
@@ -607,4 +585,132 @@ li > a {
   font-size: 0.7rem;
   opacity: 0.45;
   white-space: nowrap;
+}
+
+/* --- admin --- */
+
+.admin-distribute-form {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.period-select-inline {
+  font-family: var(--main-font);
+  font-size: 0.9rem;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--foreground-color);
+  cursor: pointer;
+}
+
+.student-controls {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.student-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.student-table-header,
+.student-table-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 0.6fr 0.8fr 1fr 1.6fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+}
+
+.student-table-header {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+
+.student-table-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.student-table-row {
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.03);
+  font-size: 0.85rem;
+}
+
+.student-name-link {
+  color: var(--foreground-color);
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.student-name-link:hover {
+  color: var(--accent-color);
+  text-decoration: underline;
+}
+
+.student-public-id {
+  opacity: 0.7;
+  font-family: var(--accent-font);
+}
+
+.student-coins {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.student-pending-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.student-pending-value {
+  font-weight: 600;
+}
+
+.student-row-actions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.student-action-button {
+  font-family: var(--main-font);
+  font-size: 0.7rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: var(--foreground-color);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.student-action-button:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.student-action-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.student-action-button.copied {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }

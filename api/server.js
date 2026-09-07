@@ -6,6 +6,7 @@ import bondsRoutes from "./src/routes/bonds.js";
 import redemptionRoutes from "./src/routes/redemption.js";
 import economyRoutes from "./src/routes/economy.js";
 import ledgerRoutes from "./src/routes/ledger.js";
+import adminRoutes from "./src/routes/admin.js";
 
 const corsOptions = {
   origin: [
@@ -30,6 +31,7 @@ app.use("/bonds", bondsRoutes);
 app.use("/redemption", redemptionRoutes);
 app.use("/economy", economyRoutes);
 app.use("/ledger", ledgerRoutes);
+app.use("/admin", adminRoutes);
 
 app.use((error, _, response, __) => {
   console.error(error);

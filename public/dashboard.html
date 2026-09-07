@@ -13,6 +13,10 @@
     <link rel="stylesheet" href="styles/shared.css" />
     <link rel="stylesheet" href="styles/dashboard.css" />
     <link rel="stylesheet" href="styles/google-button.css" />
+
+    <!-- thing for graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   </head>
   <body>
     <div class="sidebar">
@@ -68,7 +72,7 @@
           <div class="stat-card">
             <span class="stat-label">Pending</span>
             <span class="stat-value" id="stat-pending">—</span>
-            <span class="stat-unit">Moorecoins</span>
+            <span class="stat-unit">Extra Credit</span>
           </div>
           <div class="stat-card">
             <span class="stat-label">Total</span>
@@ -111,20 +115,37 @@
 
         <div class="dashboard-panel">
           <div class="panel-header">
-            <h3>Balance over time</h3>
-            <span class="panel-note">Coming soon — needs ledger history</span>
+            <h3>Redeem for extra credit</h3>
           </div>
-          <div class="chart-placeholder">
-            <svg viewBox="0 0 400 120" class="chart-placeholder-svg">
-              <polyline
-                points="0,90 50,80 100,85 150,60 200,65 250,40 300,45 350,20 400,25"
-                fill="none"
-                stroke="var(--accent-color)"
-                stroke-width="2"
-                stroke-opacity="0.35"
-              />
-            </svg>
-            <span class="chart-placeholder-label">Placeholder data</span>
+          <p class="settings-copy">
+            Convert Moorecoins into extra credit at the current exchange rate.
+            This is final — redeemed coins can't be converted back.
+          </p>
+
+          <form class="bond-create-form" id="redeem-form">
+            <input
+              type="number"
+              id="redeem-amount-input"
+              class="bond-amount-input"
+              placeholder="Amount"
+              min="1"
+              step="1"
+              required
+            />
+            <button type="submit" class="bond-create-button" id="redeem-button">
+              Redeem
+            </button>
+          </form>
+          <span class="bond-form-preview" id="redeem-preview"></span>
+          <span class="bond-form-error" id="redeem-error"></span>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Balance over time</h3>
+          </div>
+          <div class="chart-container">
+            <canvas id="balance-chart"></canvas>
           </div>
         </div>
       </section>

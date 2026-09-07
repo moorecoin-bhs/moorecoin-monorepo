@@ -40,7 +40,12 @@ router.post("/create", verifyUser, async (request, response, next) => {
       const exchangeRate = calculateExchangeRate(circulating);
       const creditValue = Number((amount * exchangeRate).toFixed(2));
 
-      tx.update(userRef, { moorecoins: FieldValue.increment(-amount) });
+      tx.update(userRef, {
+        moorecoins: FieldValue.increment(-amount),
+        // Tracks extra credit the teacher hasn't applied to the
+        // gradebook yet — cleared via an admin "mark applied" action.
+        pendingExtraCredit: FieldValue.increment(creditValue),
+      });
 
       tx.set(
         statsRef,

@@ -8,12 +8,15 @@ let currentUserData = null;
 let bondsCache = [];
 let currentRates = null;
 let countdownInterval = null;
+let balanceChart = null;
 
 export async function init(userData) {
   currentUserData = userData;
   wireBondForm();
+  wireRedeemForm();
   await fetchRates();
   await refreshBonds();
+  await renderBalanceChart();
   startCountdownLoop();
 }
 
@@ -29,12 +32,12 @@ function renderStats() {
   const bonded = bondsCache
     .filter((b) => !b.collected)
     .reduce((sum, b) => sum + (b.principal ?? 0), 0);
-  const pending = 0;
-  const total = liquid + bonded + pending;
+  const pending = currentUserData?.user?.pendingExtraCredit ?? 0;
+  const total = liquid + bonded;
 
   setStatValue("stat-liquid", liquid);
   setStatValue("stat-bonded", bonded);
-  setStatValue("stat-pending", pending);
+  setDollarStatValue("stat-pending", pending);
   setStatValue("stat-total", total);
 }
 
@@ -43,7 +46,17 @@ function setStatValue(id, value) {
   if (el) el.textContent = value.toLocaleString();
 }
 
-// --- rates + preview ---
+function setDollarStatValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.textContent = value.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+}
+
+// --- rates + preview (bonds + redeem) ---
 
 async function fetchRates() {
   try {
@@ -75,6 +88,22 @@ function updateBondPreview() {
   previewEl.innerHTML =
     `Matures in 14 days for approximately <strong>${payout.toLocaleString()} coins</strong> ` +
     `(+${interestAmount.toLocaleString()} interest at current rate)`;
+}
+
+function updateRedeemPreview() {
+  const input = document.getElementById("redeem-amount-input");
+  const previewEl = document.getElementById("redeem-preview");
+  if (!input || !previewEl) return;
+
+  const amount = Number(input.value);
+
+  if (!currentRates || !Number.isInteger(amount) || amount <= 0) {
+    previewEl.innerHTML = "";
+    return;
+  }
+
+  const creditValue = (amount * currentRates.exchangeRate).toFixed(2);
+  previewEl.innerHTML = `Worth approximately <strong>${creditValue}</strong> extra credit points at the current rate.`;
 }
 
 // --- bonds fetch + render ---
@@ -153,7 +182,7 @@ function renderBondsList() {
     );
   });
 
-  tickCountdowns(); // paint immediately instead of waiting for the first interval tick
+  tickCountdowns();
 }
 
 function getBondStatus(bond) {
@@ -182,7 +211,7 @@ function tickCountdowns() {
   document.querySelectorAll(".bond-item[data-matures-at]").forEach((item) => {
     const maturesAt = Number(item.dataset.maturesAt);
     const countdownEl = item.querySelector(".bond-item-countdown");
-    if (!countdownEl) return; // already matured/collected, nothing to tick
+    if (!countdownEl) return;
 
     const msLeft = maturesAt - now;
 
@@ -194,9 +223,6 @@ function tickCountdowns() {
     countdownEl.textContent = formatCountdown(msLeft);
   });
 
-  // A bond crossed into "matured" while we were sitting on this page —
-  // re-render so its Collect button appears instead of waiting for a
-  // manual refresh.
   if (anyJustMatured) renderBondsList();
 }
 
@@ -264,8 +290,9 @@ async function handleCreate() {
     input.value = "";
     previewEl.innerHTML = "";
     currentUserData.user.moorecoins -= amount;
-    await fetchRates(); // circulating supply just changed, refresh the reference rate
+    await fetchRates();
     await refreshBonds();
+    await renderBalanceChart();
   } catch (err) {
     console.error("Failed to create bond", err);
     errorEl.textContent = "Something went wrong. Try again.";
@@ -302,6 +329,7 @@ async function handleCollect(bondId, button) {
 
     currentUserData.user.moorecoins += data.payout;
     await refreshBonds();
+    await renderBalanceChart();
   } catch (err) {
     console.error("Failed to collect bond", err);
     button.disabled = false;
@@ -316,4 +344,287 @@ function errorMessageFor(code) {
       "The central bank reserve can't cover this bond's interest right now.",
   };
   return messages[code] || "Something went wrong. Try again.";
+}
+
+// --- redeem for extra credit ---
+
+function wireRedeemForm() {
+  const form = document.getElementById("redeem-form");
+  const input = document.getElementById("redeem-amount-input");
+  if (!form || !input) return;
+
+  input.addEventListener("input", updateRedeemPreview);
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await handleRedeem();
+  });
+}
+
+async function handleRedeem() {
+  const input = document.getElementById("redeem-amount-input");
+  const button = document.getElementById("redeem-button");
+  const errorEl = document.getElementById("redeem-error");
+  const previewEl = document.getElementById("redeem-preview");
+
+  const amount = Number(input.value);
+  errorEl.textContent = "";
+
+  if (!Number.isInteger(amount) || amount <= 0) {
+    errorEl.textContent = "Enter a whole number greater than 0.";
+    return;
+  }
+
+  button.disabled = true;
+
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const response = await fetch(`${apiBase}/redemption/create`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      errorEl.textContent = errorMessageFor(data.error);
+      return;
+    }
+
+    input.value = "";
+    previewEl.innerHTML = "";
+    currentUserData.user.moorecoins -= amount;
+    currentUserData.user.pendingExtraCredit =
+      (currentUserData.user.pendingExtraCredit ?? 0) + data.extraCreditValue;
+    await fetchRates();
+    renderStats();
+    await renderBalanceChart();
+  } catch (err) {
+    console.error("Failed to redeem", err);
+    errorEl.textContent = "Something went wrong. Try again.";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+// --- balance over time ---
+
+const TYPE_LABELS = {
+  signup: "Signup",
+  bond_created: "Bond created",
+  bond_collected: "Bond collected",
+  redemption: "Redeemed",
+  reward: "Reward",
+  mint: "Mint",
+};
+
+async function renderBalanceChart() {
+  const canvas = document.getElementById("balance-chart");
+  if (!canvas) return;
+
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) return;
+
+    const response = await fetch(`${apiBase}/ledger/mine`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok)
+      throw new Error(`Failed to fetch ledger (${response.status})`);
+
+    const data = await response.json();
+    const points = buildBalanceSeries(data.entries ?? []);
+
+    drawBalanceChart(canvas, points);
+  } catch (err) {
+    console.error("Failed to load balance history", err);
+  }
+}
+
+function buildBalanceSeries(entries) {
+  let running = 0;
+  const points = [
+    {
+      x: entries[0] ? toMillis(entries[0].timestamp) : Date.now(),
+      y: 0,
+      label: null,
+    },
+  ];
+
+  entries.forEach((entry) => {
+    running += entry.direction === "in" ? entry.amount : -entry.amount;
+    points.push({
+      x: toMillis(entry.timestamp),
+      y: running,
+      label: TYPE_LABELS[entry.type] ?? entry.type,
+    });
+  });
+
+  if (points.length > 0) {
+    points.push({ x: Date.now(), y: points[points.length - 1].y, label: null });
+  }
+
+  return points;
+}
+
+function toMillis(timestamp) {
+  if (!timestamp) return Date.now();
+  if (typeof timestamp === "object" && "_seconds" in timestamp)
+    return timestamp._seconds * 1000;
+  return new Date(timestamp).getTime();
+}
+
+function expandHex(hex) {
+  if (/^#[0-9a-f]{3}$/i.test(hex)) {
+    const [, r, g, b] = hex;
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  return hex;
+}
+
+let pluginRegistered = false;
+
+function registerEventLabelPlugin() {
+  if (pluginRegistered) return;
+  pluginRegistered = true;
+
+  Chart.register({
+    id: "eventLabels",
+    afterDatasetsDraw(chart) {
+      const { ctx, data, scales, chartArea } = chart;
+      const points = data.datasets[0].data;
+      if (!points?.length) return;
+
+      ctx.save();
+      ctx.font = "10px var(--main-font), sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillStyle = getComputedStyle(document.documentElement)
+        .getPropertyValue("--foreground-color")
+        .trim();
+
+      let lastLabelX = -Infinity;
+      const minSpacing = 48;
+      const labelOffset = 20;
+      const minLabelY = chartArea.top + 10; // never draw above the chart's own top edge
+
+      points.forEach((point) => {
+        if (!point.label) return;
+
+        const x = scales.x.getPixelForValue(point.x);
+        const pointY = scales.y.getPixelForValue(point.y);
+        const labelY = Math.max(pointY - labelOffset, minLabelY);
+
+        // no spacing check — every event gets a label, even if some overlap when clustered
+
+        ctx.strokeStyle = "rgba(255,255,255,0.25)";
+        ctx.beginPath();
+        ctx.moveTo(x, pointY - 6);
+        ctx.lineTo(x, labelY + 6);
+        ctx.stroke();
+
+        ctx.fillText(point.label, x, labelY);
+      });
+
+      ctx.restore();
+    },
+  });
+}
+
+function drawBalanceChart(canvas, points) {
+  registerEventLabelPlugin();
+
+  if (balanceChart) {
+    balanceChart.data.datasets[0].data = points;
+    balanceChart.update();
+    return;
+  }
+
+  const styles = getComputedStyle(document.documentElement);
+  const accentColor = expandHex(
+    styles.getPropertyValue("--accent-color").trim(),
+  );
+  const foregroundColor = styles.getPropertyValue("--foreground-color").trim();
+
+  balanceChart = new Chart(canvas, {
+    type: "line",
+    data: {
+      datasets: [
+        {
+          label: "Balance",
+          data: points,
+          borderColor: accentColor,
+          backgroundColor: (context) => {
+            const { ctx, chartArea } = context.chart;
+            if (!chartArea) return null;
+            const gradient = ctx.createLinearGradient(
+              0,
+              chartArea.top,
+              0,
+              chartArea.bottom,
+            );
+            gradient.addColorStop(0, `${accentColor}33`);
+            gradient.addColorStop(1, `${accentColor}00`);
+            return gradient;
+          },
+          fill: true,
+          stepped: "after",
+          tension: 0,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHoverBackgroundColor: accentColor,
+          pointHoverBorderColor: "#000",
+          pointHoverBorderWidth: 2,
+          borderWidth: 1.5,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false, axis: "x" },
+      layout: {
+        padding: { top: 32 },
+      },
+      scales: {
+        x: {
+          type: "time",
+          time: { tooltipFormat: "MMM d, h:mm a" },
+          border: { display: false },
+          grid: { display: false },
+          ticks: {
+            color: foregroundColor,
+            maxRotation: 0,
+            autoSkipPadding: 24,
+          },
+        },
+        y: {
+          beginAtZero: true,
+          position: "right",
+          border: { display: false },
+          grid: { color: "rgba(255,255,255,0.06)" },
+          ticks: { color: foregroundColor, precision: 0, padding: 8 },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#181818",
+          titleColor: foregroundColor,
+          bodyColor: accentColor,
+          borderColor: "rgba(255,255,255,0.1)",
+          borderWidth: 1,
+          padding: 10,
+          displayColors: false,
+          callbacks: {
+            label: (context) => `${context.parsed.y.toLocaleString()} coins`,
+          },
+        },
+      },
+    },
+  });
 }
