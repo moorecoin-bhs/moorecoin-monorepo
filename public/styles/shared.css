@@ -109,3 +109,41 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* add to shared.css */
+.step-button {
+  font-family: var(--main-font);
+  font-size: 1rem;
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent-color);
+  color: #111;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition:
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 200ms ease;
+}
+
+.step-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.step-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.step-button.ghost {
+  background: transparent;
+  color: var(--foreground-color);
+  border: 1px solid var(--foreground-color);
+}
+
+.step-button-row {
+  display: flex;
+  gap: 1rem;
+}

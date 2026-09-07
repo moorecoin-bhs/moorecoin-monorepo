@@ -49,7 +49,6 @@ export function initSidebar() {
 
 async function showActiveView() {
   const hash = location.hash || "#dashboard";
-  console.log("showActiveView called with hash:", hash); // temp debug
 
   const targetId = `view-${hash.slice(1)}`;
 
@@ -64,11 +63,9 @@ async function showActiveView() {
     const module = await loadSection();
 
     if (!loadedSections.has(hash)) {
-      console.log("Loaded " + hash);
       await module.init?.(cachedUserData);
       loadedSections.add(hash);
     } else {
-      console.log("Switched to " + hash);
       await module.onShow?.(cachedUserData);
     }
   } catch (err) {

@@ -11,7 +11,6 @@ let selectedPeriod = null;
 let idToken = null;
 
 const steps = ["step-1", "step-2", "step-3", "step-4"];
-let currentStepIndex = 0;
 
 onAuthStateChanged(auth, async (user) => {
   if (!user?.uid) {
@@ -56,8 +55,6 @@ function goToStep(index) {
   document.querySelectorAll(".step-dot").forEach((dot, i) => {
     dot.classList.toggle("active", i === index);
   });
-
-  currentStepIndex = index;
 }
 
 function wireSteps() {
