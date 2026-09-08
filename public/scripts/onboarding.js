@@ -2,6 +2,7 @@ import { app, apiBase } from "./app.js";
 import { getEconomyConfig, populatePeriodSelect } from "./config.js";
 import { messageForError } from "./errors.js";
 import { showApiErrorBanner } from "./banner.js";
+import { homeForRole } from "./routes.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -25,7 +26,7 @@ onAuthStateChanged(auth, async (user) => {
     currentUserData = await fetchSession(await user.getIdToken());
 
     if (currentUserData.user.finishedOnboarding) {
-      window.location.href = "./dashboard.html";
+      window.location.href = homeForRole(currentUserData.user.role);
       return;
     }
 
@@ -166,7 +167,9 @@ async function handleFinish() {
       return;
     }
 
-    window.location.href = "./dashboard.html";
+    // Route by role, not straight to the student dashboard: an admin who
+    // has just finished onboarding belongs in the admin panel.
+    window.location.href = homeForRole(currentUserData?.user?.role);
   } catch (err) {
     console.error("Failed to finish onboarding", err);
     showApiErrorBanner("Couldn't finish setting up your account. Try again.");

@@ -9,6 +9,7 @@ import {
   signOut,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { showApiErrorBanner } from "./banner.js";
+import { homeForRole } from "./routes.js";
 
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
@@ -24,18 +25,6 @@ const ACCESS_DENIED_MESSAGES = {
   email_not_verified:
     "This Google account's email address hasn't been verified.",
 };
-
-const routes = {
-  student: "./dashboard.html",
-  admin: "./admin.html",
-};
-
-function navigateTo(key) {
-  const url = routes[key];
-  if (url) {
-    window.location.href = url;
-  }
-}
 
 async function ensurePersistence() {
   try {
@@ -78,7 +67,7 @@ async function routeByRole(user) {
     return;
   }
 
-  navigateTo(data.user.role);
+  window.location.href = homeForRole(data.user.role);
 }
 
 async function handleSignIn() {

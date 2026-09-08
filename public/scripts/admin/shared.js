@@ -1,4 +1,5 @@
 import { app, apiBase } from "../app.js";
+import { homeForRole } from "../routes.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -27,7 +28,7 @@ export function initSidebar() {
       cachedUserData = await populateUserInfo(user);
 
       if (cachedUserData.user.role !== "admin") {
-        window.location.href = "./dashboard.html";
+        window.location.href = homeForRole(cachedUserData.user.role);
         return;
       }
     } catch (err) {

@@ -66,5 +66,7 @@ export function messageForError(code, { config = null, overrides = {} } = {}) {
     ...dynamicMessages(config),
     ...overrides,
   };
-  return messages[code] ?? FALLBACK_MESSAGE;
+  // Same reason as routes.js: a plain lookup on "__proto__" returns
+  // Object.prototype rather than falling through to the fallback.
+  return Object.hasOwn(messages, code) ? messages[code] : FALLBACK_MESSAGE;
 }
