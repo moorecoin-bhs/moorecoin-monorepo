@@ -1,18 +1,19 @@
-rules_version='2'
+rules_version = '2';
 
+// Moorecoin locks Firestore to server-side access only.
+//
+// No client ever talks to Firestore directly: the browser bundle has no
+// Firestore SDK (see public/scripts/) and reaches data exclusively through
+// the Express API, which uses the Admin SDK. Admin SDK credentials bypass
+// security rules entirely, so denying every client request here costs the
+// app nothing and removes the database as an attack surface.
+//
+// If a future feature genuinely needs direct client reads, add a narrow
+// match block for that specific path — do not widen this default.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 9, 5);
+      allow read, write: if false;
     }
   }
 }

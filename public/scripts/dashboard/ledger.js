@@ -1,4 +1,5 @@
 import { apiBase } from "../app.js";
+import { escapeHtml, formatCoins } from "../format.js";
 
 const TYPE_LABELS = {
   signup: "Signup bonus",
@@ -7,6 +8,7 @@ const TYPE_LABELS = {
   reward: "Reward",
   redemption: "Redeemed",
   mint: "Central bank mint",
+  burn: "Central bank burn",
   stock_buy: "Stock purchase",
   stock_sell: "Stock sale",
 };
@@ -14,7 +16,7 @@ const TYPE_LABELS = {
 // Whether this type reads as a gain (+, gold) or a cost (-, red)
 // from the "to" party's perspective.
 const POSITIVE_TYPES = new Set(["signup", "bond_collected", "reward", "mint"]);
-const NEGATIVE_TYPES = new Set(["bond_created", "redemption"]);
+const NEGATIVE_TYPES = new Set(["bond_created", "redemption", "burn"]);
 
 let initialized = false;
 
@@ -87,12 +89,12 @@ function renderLedger(entries) {
       return `
         <li class="ledger-item">
           <div class="ledger-item-main">
-            <span class="ledger-item-type">${label}</span>
-            <span class="ledger-item-parties">${from} &rarr; ${to}</span>
+            <span class="ledger-item-type">${escapeHtml(label)}</span>
+            <span class="ledger-item-parties">${escapeHtml(from)} &rarr; ${escapeHtml(to)}</span>
           </div>
           <div class="ledger-item-right">
-            <span class="ledger-item-amount ${direction}">${sign}${entry.amount.toLocaleString()} ${coinWord}</span>
-            <span class="ledger-item-time">${formatTimestamp(entry.timestamp)}</span>
+            <span class="ledger-item-amount ${direction}">${sign}${formatCoins(entry.amount)} ${coinWord}</span>
+            <span class="ledger-item-time">${escapeHtml(formatTimestamp(entry.timestamp))}</span>
           </div>
         </li>
       `;

@@ -1,4 +1,11 @@
 import { apiBase } from "../app.js";
+import { escapeHtml, formatCoins } from "../format.js";
+import {
+  getEconomyConfig,
+  validateAmount,
+  applyAmountBounds,
+} from "../config.js";
+import { messageForError } from "../errors.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { app } from "../app.js";
 
@@ -9,9 +16,19 @@ let bondsCache = [];
 let currentRates = null;
 let countdownInterval = null;
 let balanceChart = null;
+let economyConfig = null;
 
 export async function init(userData) {
   currentUserData = userData;
+  economyConfig = await getEconomyConfig();
+  applyAmountBounds(
+    document.getElementById("bond-amount-input"),
+    economyConfig,
+  );
+  applyAmountBounds(
+    document.getElementById("redeem-amount-input"),
+    economyConfig,
+  );
   wireBondForm();
   wireRedeemForm();
   await fetchRates();
@@ -85,8 +102,11 @@ function updateBondPreview() {
   const interestAmount = Math.round(amount * currentRates.interestRate);
   const payout = amount + interestAmount;
 
+  const termDays = economyConfig?.bondTermDays;
+  const termText = termDays ? `in ${termDays} days` : "at term";
+
   previewEl.innerHTML =
-    `Matures in 14 days for approximately <strong>${payout.toLocaleString()} coins</strong> ` +
+    `Matures ${termText} for approximately <strong>${payout.toLocaleString()} coins</strong> ` +
     `(+${interestAmount.toLocaleString()} interest at current rate)`;
 }
 
@@ -152,11 +172,11 @@ function renderBondsList() {
       const statusLabel = { collected: "Collected" }[status];
 
       return `
-        <li class="bond-item" data-bond-id="${bond.id}" data-matures-at="${bond.maturesAt}">
+        <li class="bond-item" data-bond-id="${escapeHtml(bond.id)}" data-matures-at="${escapeHtml(bond.maturesAt)}">
           <div class="bond-item-info">
-            <span class="bond-item-amount">${bond.principal.toLocaleString()} coins</span>
+            <span class="bond-item-amount">${formatCoins(bond.principal)} coins</span>
             <span class="bond-item-meta">
-              +${bond.interestAmount.toLocaleString()} interest &middot;
+              +${formatCoins(bond.interestAmount)} interest &middot;
               ${
                 status === "pending"
                   ? `<span class="bond-item-countdown">calculating...</span>`
@@ -168,7 +188,7 @@ function renderBondsList() {
           </div>
           ${
             status === "matured"
-              ? `<button class="bond-collect-button" data-bond-id="${bond.id}">Collect</button>`
+              ? `<button class="bond-collect-button" data-bond-id="${escapeHtml(bond.id)}">Collect</button>`
               : `<span class="bond-item-status ${status}">${statusLabel ?? "Maturing"}</span>`
           }
         </li>
@@ -262,8 +282,9 @@ async function handleCreate() {
   const amount = Number(input.value);
   errorEl.textContent = "";
 
-  if (!Number.isInteger(amount) || amount <= 0) {
-    errorEl.textContent = "Enter a whole number greater than 0.";
+  const amountError = validateAmount(amount, economyConfig);
+  if (amountError) {
+    errorEl.textContent = amountError;
     return;
   }
 
@@ -318,12 +339,17 @@ async function handleCollect(bondId, button) {
       body: JSON.stringify({ bondId }),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      console.error("Failed to collect bond", data.error);
+      // Four distinct failures reach here (not found / not yours / already
+      // collected / not matured). Previously the button just reverted with
+      // no explanation, which reads as the app being broken.
+      const errorEl = document.getElementById("bond-form-error");
+      if (errorEl) errorEl.textContent = errorMessageFor(data.error);
       button.disabled = false;
       button.textContent = "Collect";
+      await refreshBonds();
       return;
     }
 
@@ -338,12 +364,13 @@ async function handleCollect(bondId, button) {
 }
 
 function errorMessageFor(code) {
-  const messages = {
-    insufficient_balance: "You don't have enough Moorecoins for that.",
-    reserve_would_be_insufficient:
-      "The central bank reserve can't cover this bond's interest right now.",
-  };
-  return messages[code] || "Something went wrong. Try again.";
+  return messageForError(code, {
+    config: economyConfig,
+    overrides: {
+      reserve_would_be_insufficient:
+        "The central bank reserve can't cover this bond's interest right now.",
+    },
+  });
 }
 
 // --- redeem for extra credit ---
@@ -370,8 +397,9 @@ async function handleRedeem() {
   const amount = Number(input.value);
   errorEl.textContent = "";
 
-  if (!Number.isInteger(amount) || amount <= 0) {
-    errorEl.textContent = "Enter a whole number greater than 0.";
+  const amountError = validateAmount(amount, economyConfig);
+  if (amountError) {
+    errorEl.textContent = amountError;
     return;
   }
 

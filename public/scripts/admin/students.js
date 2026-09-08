@@ -1,4 +1,6 @@
 import { apiBase } from "../app.js";
+import { escapeHtml, formatCoins, formatCredit, toNumber } from "../format.js";
+import { getEconomyConfig, populatePeriodSelect } from "../config.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { app } from "../app.js";
 
@@ -7,6 +9,11 @@ const auth = getAuth(app);
 let studentsCache = [];
 
 export async function init() {
+  populatePeriodSelect(
+    document.getElementById("filter-period"),
+    await getEconomyConfig(),
+    { allLabel: "All periods" },
+  );
   wireControls();
   await loadStudents();
 }
@@ -99,20 +106,27 @@ function renderStudents() {
 
   body.innerHTML = list
     .map((student) => {
-      const pending = student.pendingExtraCredit ?? 0;
+      // name and email are user-controlled (Google profile) and land in both
+      // text and attribute positions here, so every one is escaped. Coerce
+      // pending to a number first: a non-numeric value would pass the
+      // `> 0` test and then throw on .toFixed(), killing the whole table.
+      const pending = toNumber(student.pendingExtraCredit);
+      const uid = escapeHtml(student.uid);
+      const pendingLabel = formatCredit(pending);
+
       return `
-        <div class="student-table-row" data-uid="${student.uid}">
-          <a class="student-name-link" href="mailto:${student.email ?? ""}">${student.name ?? "Unnamed"}</a>
-          <span class="student-public-id">${student.publicUid ?? "—"}</span>
-          <span>${student.period ? `P${student.period}` : "—"}</span>
-          <span class="student-coins">${(student.moorecoins ?? 0).toLocaleString()}</span>
+        <div class="student-table-row" data-uid="${uid}">
+          <a class="student-name-link" href="mailto:${escapeHtml(student.email ?? "")}">${escapeHtml(student.name ?? "Unnamed")}</a>
+          <span class="student-public-id">${escapeHtml(student.publicUid ?? "—")}</span>
+          <span>${student.period ? `P${escapeHtml(student.period)}` : "—"}</span>
+          <span class="student-coins">${formatCoins(student.moorecoins ?? 0)}</span>
           <span class="student-pending-cell">
-            <span class="student-pending-value">${pending.toFixed(2)}</span>
-            ${pending > 0 ? `<button class="student-action-button copy-pending" data-value="${pending.toFixed(2)}">Copy</button>` : ""}
+            <span class="student-pending-value">${pendingLabel}</span>
+            ${pending > 0 ? `<button class="student-action-button copy-pending" data-value="${pendingLabel}">Copy</button>` : ""}
           </span>
           <span class="student-row-actions">
-            <button class="student-action-button give-one" data-uid="${student.uid}">+1 Coin</button>
-            ${pending > 0 ? `<button class="student-action-button mark-submitted" data-uid="${student.uid}">Mark submitted</button>` : ""}
+            <button class="student-action-button give-one" data-uid="${uid}">+1 Coin</button>
+            ${pending > 0 ? `<button class="student-action-button mark-submitted" data-uid="${uid}">Mark submitted</button>` : ""}
           </span>
         </div>
       `;
@@ -161,7 +175,8 @@ async function handleMarkSubmitted(uid, button) {
   button.disabled = true;
   try {
     const response = await authedFetch(
-      `/admin/users/${uid}/mark-extra-credit-submitted`,
+      // Path segment, not markup — needs URL encoding rather than escaping.
+      `/admin/users/${encodeURIComponent(uid)}/mark-extra-credit-submitted`,
       {
         method: "POST",
       },

@@ -1,4 +1,5 @@
 import { apiBase } from "../app.js";
+import { escapeHtml, formatCoins } from "../format.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { app } from "../app.js";
 
@@ -89,18 +90,20 @@ function renderLedger(entries) {
             : "";
       const coinWord = entry.amount === 1 ? "coin" : "coins";
 
+      // fromName/toName come from the student's Google profile, so they are
+      // user-controlled and must be escaped before reaching innerHTML.
       const from = partyLabel(entry.fromName, entry.fromPublicId);
       const to = partyLabel(entry.toName, entry.toPublicId);
 
       return `
         <li class="ledger-item">
           <div class="ledger-item-main">
-            <span class="ledger-item-type">${label}</span>
-            <span class="ledger-item-parties">${from} &rarr; ${to}</span>
+            <span class="ledger-item-type">${escapeHtml(label)}</span>
+            <span class="ledger-item-parties">${escapeHtml(from)} &rarr; ${escapeHtml(to)}</span>
           </div>
           <div class="ledger-item-right">
-            <span class="ledger-item-amount ${direction}">${sign}${entry.amount.toLocaleString()} ${coinWord}</span>
-            <span class="ledger-item-time">${formatTimestamp(entry.timestamp)}</span>
+            <span class="ledger-item-amount ${direction}">${sign}${formatCoins(entry.amount)} ${coinWord}</span>
+            <span class="ledger-item-time">${escapeHtml(formatTimestamp(entry.timestamp))}</span>
           </div>
         </li>
       `;

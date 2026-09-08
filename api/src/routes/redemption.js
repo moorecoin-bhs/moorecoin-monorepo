@@ -3,7 +3,7 @@ import { db, FieldValue } from "../firebase.js";
 import { verifyUser } from "../middleware/auth.js";
 import {
   calculateExchangeRate,
-  requirePositiveInt,
+  isValidAmount,
   buildLedgerEntry,
 } from "../helpers/economy.js";
 
@@ -14,10 +14,8 @@ router.post("/create", verifyUser, async (request, response, next) => {
     const uid = request.uid;
     const amount = Number(request.body?.amount);
 
-    if (!requirePositiveInt(amount)) {
-      return response
-        .status(400)
-        .json({ error: "amount must be a positive integer" });
+    if (!isValidAmount(amount)) {
+      return response.status(400).json({ error: "invalid_amount" });
     }
 
     const userRef = db.collection("users").doc(uid);

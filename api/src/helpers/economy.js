@@ -1,4 +1,30 @@
-export const BOND_TERM_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+// --- shared validation rules -------------------------------------------
+//
+// These are the single source of truth for every rule the client and server
+// both enforce. The browser cannot import this file, so it reads the same
+// values at runtime from GET /economy/config (see routes/economy.js) rather
+// than hardcoding its own copies. Change a value here and both sides follow.
+
+export const BOND_TERM_DAYS = 14;
+export const BOND_TERM_MS = BOND_TERM_DAYS * 24 * 60 * 60 * 1000;
+
+export const MIN_AMOUNT = 1;
+
+// Upper bound on any single coin amount (mint, burn, distribute, reward,
+// bond, redemption).
+//
+// Number.isInteger alone is not a bound: Number.isInteger(1e21) is true, so
+// the previous positive-integer check accepted 1e21 and would have written a
+// reserve with lost integer precision.
+//
+// Sized against the real economy (reserve starts around 1,500) so that it
+// also catches an admin typo — an extra zero on a realistic mint is rejected
+// rather than silently applied. Raise it here if the economy outgrows it;
+// nothing else needs changing.
+export const MAX_AMOUNT = 10_000;
+
+export const PERIOD_MIN = 1;
+export const PERIOD_MAX = 6;
 
 export const calculateExchangeRate = (t) =>
   Math.max(0.005, 1.2 * Math.exp(-0.000521 * t));
@@ -6,16 +32,54 @@ export const calculateExchangeRate = (t) =>
 export const calculateInterestRate = (t) =>
   0.1 + 0.65 * Math.exp(-0.000486 * t);
 
-export function requirePositiveInt(value) {
-  return Number.isInteger(value) && value > 0;
+// Replaces the former requirePositiveInt, which had no upper bound.
+export function isValidAmount(value) {
+  return (
+    Number.isInteger(value) && value >= MIN_AMOUNT && value <= MAX_AMOUNT
+  );
 }
 
+export function isValidPeriod(value) {
+  return (
+    Number.isInteger(value) && value >= PERIOD_MIN && value <= PERIOD_MAX
+  );
+}
+
+// Firebase Auth UIDs are non-empty strings of at most 128 characters. The
+// extra checks reject values that are not legal Firestore document IDs —
+// passing one of those to .doc() throws, which surfaces as a 500 instead of
+// a 400. Callers must validate before building a DocumentReference.
+export function isValidUid(value) {
+  if (typeof value !== "string") return false;
+  if (value.length === 0 || value.length > 128) return false;
+  if (value.includes("/")) return false; // would split into extra path segments
+  if (value === "." || value === "..") return false;
+  if (/^__.*__$/.test(value)) return false; // reserved by Firestore
+  return true;
+}
+
+// Coins physically sitting in the reserve that are not already promised to
+// someone: the raw balance minus every open bond's principal (owed back to a
+// student) and the interest promised on those bonds. This is the floor every
+// spend path must respect — see the burn/distribute/reward routes.
+export function computeFreeReserve(reserve, bonded, liability) {
+  return reserve - bonded - liability;
+}
+
+// Both claims are optional on a Firebase ID token, so neither may throw
+// here: this runs inside the signup transaction, and a TypeError would
+// surface as a 500 on /auth/session and lock the user out of signing up at
+// all. verifyUser currently guarantees a well-formed email before this is
+// reached, but the helper must not depend on a caller's invariant.
 export function generatePublicUid(name, email) {
   const stripEmailRegex = /@.+$/;
-  const studentId = email.replace(stripEmailRegex, "");
-  const shortStudentId = studentId.slice(-3);
+  const safeEmail = typeof email === "string" ? email : "";
+  const studentId = safeEmail.replace(stripEmailRegex, "");
+  // Padded so a missing or unusually short local part still yields the
+  // normal 2-letter + 3-character shape rather than a stub like "JD".
+  const shortStudentId = studentId.slice(-3).padStart(3, "0");
 
-  const safeName = name?.trim() || "Unknown User";
+  const safeName = (typeof name === "string" ? name.trim() : "") || "Unknown User";
   const nameParts = safeName.split(" ").filter(Boolean);
   const firstName = nameParts[0];
   const lastName = nameParts[nameParts.length - 1];

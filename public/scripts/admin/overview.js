@@ -1,10 +1,33 @@
 import { apiBase } from "../app.js";
+import { escapeHtml } from "../format.js";
+import {
+  getEconomyConfig,
+  validateAmount,
+  applyAmountBounds,
+  populatePeriodSelect,
+} from "../config.js";
+import { messageForError } from "../errors.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { app } from "../app.js";
 
 const auth = getAuth(app);
 
+let economyConfig = null;
+
 export async function init() {
+  economyConfig = await getEconomyConfig();
+
+  // Period options and amount bounds come from the server's own constants,
+  // so the form can't drift from what the API will accept.
+  populatePeriodSelect(
+    document.getElementById("reward-period-select"),
+    economyConfig,
+  );
+  ["mint-amount-input", "burn-amount-input", "distribute-amount-input",
+   "reward-amount-input"].forEach((id) =>
+    applyAmountBounds(document.getElementById(id), economyConfig),
+  );
+
   wireForms();
   await refreshOverview();
   await loadStudentOptions();
@@ -71,8 +94,9 @@ async function loadStudentOptions() {
       `<option value="" disabled ${previousValue ? "" : "selected"}>Select a student</option>` +
       students
         .map(
+          // s.name is user-controlled via the student's Google profile.
           (s) =>
-            `<option value="${s.uid}">${s.name ?? "Unnamed"} (${s.publicUid ?? "?"})</option>`,
+            `<option value="${escapeHtml(s.uid)}">${escapeHtml(s.name ?? "Unnamed")} (${escapeHtml(s.publicUid ?? "?")})</option>`,
         )
         .join("");
 
@@ -123,8 +147,9 @@ function wireForms() {
       errorEl.textContent = "Select a student.";
       return;
     }
-    if (!Number.isInteger(amount) || amount <= 0) {
-      errorEl.textContent = "Enter a whole number greater than 0.";
+    const amountError = validateAmount(amount, economyConfig);
+    if (amountError) {
+      errorEl.textContent = amountError;
       return;
     }
 
@@ -165,8 +190,9 @@ function wireForms() {
       errorEl.textContent = "Select a period.";
       return;
     }
-    if (!Number.isInteger(amount) || amount <= 0) {
-      errorEl.textContent = "Enter a whole number greater than 0.";
+    const amountError = validateAmount(amount, economyConfig);
+    if (amountError) {
+      errorEl.textContent = amountError;
       return;
     }
 
@@ -205,8 +231,9 @@ function wireSimpleForm(formId, inputId, buttonId, errorId, submitFn) {
     const amount = Number(input.value);
     errorEl.textContent = "";
 
-    if (!Number.isInteger(amount) || amount <= 0) {
-      errorEl.textContent = "Enter a whole number greater than 0.";
+    const amountError = validateAmount(amount, economyConfig);
+    if (amountError) {
+      errorEl.textContent = amountError;
       return;
     }
 
@@ -230,12 +257,11 @@ function wireSimpleForm(formId, inputId, buttonId, errorId, submitFn) {
 }
 
 function adminErrorMessage(code) {
-  const messages = {
-    reserve_insufficient: "The reserve doesn't have enough coins for that.",
-    reserve_would_be_insufficient:
-      "That would leave the reserve unable to cover bonded principal and outstanding interest.",
-    no_students_in_period: "No students are in that period yet.",
-    user_not_found: "That student couldn't be found.",
-  };
-  return messages[code] || "Something went wrong. Try again.";
+  return messageForError(code, {
+    config: economyConfig,
+    overrides: {
+      user_not_found: "That student couldn't be found.",
+      invalid_uid: "That student couldn't be identified. Refresh and retry.",
+    },
+  });
 }

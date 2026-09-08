@@ -4,7 +4,8 @@ import { verifyUser, requireAdmin } from "../middleware/auth.js";
 import {
   BOND_TERM_MS,
   calculateInterestRate,
-  requirePositiveInt,
+  isValidAmount,
+  isValidUid,
   buildLedgerEntry,
   toPublicBond,
 } from "../helpers/economy.js";
@@ -31,10 +32,8 @@ router.post("/create", verifyUser, async (request, response, next) => {
     const uid = request.uid;
     const amount = Number(request.body?.amount);
 
-    if (!requirePositiveInt(amount)) {
-      return response
-        .status(400)
-        .json({ error: "amount must be a positive integer" });
+    if (!isValidAmount(amount)) {
+      return response.status(400).json({ error: "invalid_amount" });
     }
 
     const userRef = db.collection("users").doc(uid);
@@ -142,8 +141,9 @@ router.post("/collect", verifyUser, async (request, response, next) => {
     const uid = request.uid;
     const bondId = request.body?.bondId;
 
-    if (!bondId)
-      return response.status(400).json({ error: "bondId is required" });
+    // Same document-id constraints as a uid: validate before .doc().
+    if (!isValidUid(bondId))
+      return response.status(400).json({ error: "invalid_bond_id" });
 
     const userRef = db.collection("users").doc(uid);
     const statsRef = db.collection("stats").doc("totals");

@@ -13,7 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci && npm run build
+      # There is no build step: public/ is hand-written static HTML, CSS
+      # and ES modules that Firebase serves directly, and the only
+      # package.json in the repo is api/'s (deployed separately). The
+      # generated `npm ci && npm run build` here referenced a root
+      # package.json that has never existed, so every run failed at this
+      # step and nothing was ever deployed.
+      - name: Check JavaScript syntax
+        run: bash .github/scripts/check-syntax.sh
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}

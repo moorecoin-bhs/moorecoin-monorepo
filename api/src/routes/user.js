@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "../firebase.js";
 import { verifyUser } from "../middleware/auth.js";
+import { isValidPeriod } from "../helpers/economy.js";
 
 const router = Router();
 
@@ -12,10 +13,8 @@ router.post(
       const uid = request.uid;
       const period = Number(request.body?.period);
 
-      if (!Number.isInteger(period) || period < 1 || period > 6) {
-        return response
-          .status(400)
-          .json({ error: "period must be an integer between 1 and 6" });
+      if (!isValidPeriod(period)) {
+        return response.status(400).json({ error: "invalid_period" });
       }
 
       const userRef = db.collection("users").doc(uid);

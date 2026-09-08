@@ -6,11 +6,24 @@ import {
   setPersistence,
   browserLocalPersistence,
   onAuthStateChanged,
+  signOut,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { showApiErrorBanner } from "./banner.js";
 
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+
+// Thrown when the account is valid but not permitted, as opposed to the
+// API being unreachable. The two need different messages: one is the user's
+// problem to fix, the other is ours.
+class AccessDeniedError extends Error {}
+
+const ACCESS_DENIED_MESSAGES = {
+  email_not_allowed:
+    "This Google account can't use Moorecoin. Sign in with your school account.",
+  email_not_verified:
+    "This Google account's email address hasn't been verified.",
+};
 
 const routes = {
   student: "./dashboard.html",
@@ -38,6 +51,18 @@ async function routeByRole(user) {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
+
+  if (sessionResponse.status === 403) {
+    const { error } = await sessionResponse.json().catch(() => ({}));
+
+    // Sign out, or local persistence keeps the rejected account and every
+    // reload retries it — leaving the user stuck with no way to switch.
+    await signOut(auth).catch(() => {});
+
+    throw new AccessDeniedError(
+      ACCESS_DENIED_MESSAGES[error] ?? "This account can't use Moorecoin.",
+    );
+  }
 
   if (!sessionResponse.ok) {
     const body = await sessionResponse.text().catch(() => "<no body>");
@@ -80,9 +105,12 @@ function wireUi() {
 
 function observeAuth() {
   onAuthStateChanged(auth, (user) => {
-    console.log(user ? "Signed in" : "Not signed in", user || "");
     if (user) {
       routeByRole(user).catch((err) => {
+        if (err instanceof AccessDeniedError) {
+          showApiErrorBanner(err.message);
+          return;
+        }
         console.error("Failed to route user by role", err);
         showApiErrorBanner();
       });

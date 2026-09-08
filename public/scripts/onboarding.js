@@ -1,4 +1,7 @@
 import { app, apiBase } from "./app.js";
+import { getEconomyConfig, populatePeriodSelect } from "./config.js";
+import { messageForError } from "./errors.js";
+import { showApiErrorBanner } from "./banner.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -8,7 +11,7 @@ const auth = getAuth(app);
 
 let currentUserData = null;
 let selectedPeriod = null;
-let idToken = null;
+let economyConfig = null;
 
 const steps = ["step-1", "step-2", "step-3", "step-4"];
 
@@ -19,15 +22,14 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   try {
-    idToken = await user.getIdToken();
-    currentUserData = await fetchSession(idToken);
+    currentUserData = await fetchSession(await user.getIdToken());
 
     if (currentUserData.user.finishedOnboarding) {
       window.location.href = "./dashboard.html";
       return;
     }
 
-    wireSteps();
+    await wireSteps();
   } catch (err) {
     console.error("Failed to load onboarding", err);
   }
@@ -57,9 +59,12 @@ function goToStep(index) {
   });
 }
 
-function wireSteps() {
-  // Step 1: period select
+async function wireSteps() {
+  // Step 1: period select — options come from the server's period range so
+  // a student can never pick one the API will reject.
   const periodSelect = document.getElementById("period-select");
+  economyConfig = await getEconomyConfig();
+  populatePeriodSelect(periodSelect, economyConfig);
   const step1Continue = document.getElementById("step-1-continue");
 
   periodSelect.addEventListener("change", () => {
@@ -132,25 +137,39 @@ async function handleFinish() {
   finishButton.disabled = true;
 
   try {
+    // Fetched fresh rather than reused from page load: Firebase ID tokens
+    // expire after an hour, and a student can easily leave this tab open
+    // longer than that. getIdToken() refreshes automatically when needed —
+    // a stored token would simply 401 at the final step.
+    const user = auth.currentUser;
+    if (!user) {
+      window.location.href = "./index.html";
+      return;
+    }
+    const token = await user.getIdToken();
+
     const response = await fetch(`${apiBase}/user/finish-onboarding`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${idToken}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ period: selectedPeriod }),
     });
 
     if (!response.ok) {
-      const body = await response.text().catch(() => "<no body>");
-      throw new Error(
-        `API /user/finish-onboarding failed (${response.status}): ${body}`,
-      );
+      const { error } = await response.json().catch(() => ({}));
+      // This is the last step of onboarding; failing with nothing but a
+      // console message leaves the student stuck with no idea why.
+      showApiErrorBanner(messageForError(error, { config: economyConfig }));
+      finishButton.disabled = false;
+      return;
     }
 
     window.location.href = "./dashboard.html";
   } catch (err) {
     console.error("Failed to finish onboarding", err);
+    showApiErrorBanner("Couldn't finish setting up your account. Try again.");
     finishButton.disabled = false;
   }
 }
