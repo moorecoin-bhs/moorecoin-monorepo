@@ -1,5 +1,6 @@
 import { apiBase } from "../app.js";
 import { escapeHtml, formatCoins } from "../format.js";
+import { fetchRates, renderRateBand } from "../rates.js";
 import {
   getEconomyConfig,
   validateAmount,
@@ -31,7 +32,7 @@ export async function init(userData) {
   );
   wireBondForm();
   wireRedeemForm();
-  await fetchRates();
+  await refreshRates();
   await refreshBonds();
   await renderBalanceChart();
   startCountdownLoop();
@@ -39,6 +40,7 @@ export async function init(userData) {
 
 export async function onShow(userData) {
   currentUserData = userData;
+  await refreshRates();
   await refreshBonds();
 }
 
@@ -75,16 +77,9 @@ function setDollarStatValue(id, value) {
 
 // --- rates + preview (bonds + redeem) ---
 
-async function fetchRates() {
-  try {
-    const response = await fetch(`${apiBase}/economy/rates`);
-    if (!response.ok)
-      throw new Error(`Failed to fetch rates (${response.status})`);
-    currentRates = await response.json();
-  } catch (err) {
-    console.error("Failed to load economy rates", err);
-    currentRates = null;
-  }
+async function refreshRates() {
+  currentRates = await fetchRates();
+  renderRateBand(currentRates, economyConfig);
 }
 
 function updateBondPreview() {
@@ -311,7 +306,7 @@ async function handleCreate() {
     input.value = "";
     previewEl.innerHTML = "";
     currentUserData.user.moorecoins -= amount;
-    await fetchRates();
+    await refreshRates();
     await refreshBonds();
     await renderBalanceChart();
   } catch (err) {
@@ -354,6 +349,7 @@ async function handleCollect(bondId, button) {
     }
 
     currentUserData.user.moorecoins += data.payout;
+    await refreshRates();
     await refreshBonds();
     await renderBalanceChart();
   } catch (err) {
@@ -428,7 +424,7 @@ async function handleRedeem() {
     currentUserData.user.moorecoins -= amount;
     currentUserData.user.pendingExtraCredit =
       (currentUserData.user.pendingExtraCredit ?? 0) + data.extraCreditValue;
-    await fetchRates();
+    await refreshRates();
     renderStats();
     await renderBalanceChart();
   } catch (err) {

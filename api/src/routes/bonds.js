@@ -4,6 +4,7 @@ import { verifyUser, requireAdmin } from "../middleware/auth.js";
 import {
   BOND_TERM_MS,
   calculateInterestRate,
+  computeTotalSupply,
   isValidAmount,
   isValidUid,
   buildLedgerEntry,
@@ -56,11 +57,17 @@ router.post("/create", verifyUser, async (request, response, next) => {
         throw new Error("insufficient_balance");
 
       const circulating = statsSnap.data()?.moorecoinsCirculating ?? 0;
-      const interestRate = calculateInterestRate(circulating);
-      const interestAmount = Math.round(amount * interestRate);
-
       const reserve = centralBankSnap.data()?.reserve ?? 0;
       const bondedPrincipalHeld = statsSnap.data()?.moorecoinsBonded ?? 0;
+
+      // Priced off the whole supply, and this bond does not change it —
+      // the principal only moves from circulating into the reserve — so
+      // reading before the writes below is the same number either way.
+      const interestRate = calculateInterestRate(
+        computeTotalSupply(circulating, reserve),
+      );
+      const interestAmount = Math.round(amount * interestRate);
+
       const outstandingLiability =
         centralBankSnap.data()?.outstandingInterestLiability ?? 0;
 

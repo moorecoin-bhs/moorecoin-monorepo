@@ -26,11 +26,32 @@ export const MAX_AMOUNT = 10_000;
 export const PERIOD_MIN = 1;
 export const PERIOD_MAX = 6;
 
-export const calculateExchangeRate = (t) =>
-  Math.max(0.005, 1.2 * Math.exp(-0.000521 * t));
+// Every Moorecoin that exists: liquid balances in student accounts plus
+// everything held by the central bank.
+//
+// Bonded principal needs no term of its own — creating a bond moves the
+// coins out of `moorecoinsCirculating` and deposits them into `reserve`,
+// so they are counted exactly once, on the reserve side, for the length of
+// the term. `moorecoinsBonded` is a memo of how much of the reserve is
+// spoken for, not a separate pile of coins; adding it here would
+// double-count every open bond.
+//
+// The identity this preserves: supply == totalMinted - burned - redeemed.
+// Handing coins out (signup bonus, distribute, reward), locking them in a
+// bond and collecting one all move coins between the two terms without
+// changing the sum — only minting, burning and redemption move it.
+export function computeTotalSupply(circulating, reserve) {
+  return circulating + reserve;
+}
 
-export const calculateInterestRate = (t) =>
-  0.1 + 0.65 * Math.exp(-0.000486 * t);
+// Both curves take the total supply above, not just the circulating slice:
+// a coin sitting in the reserve has already been created, and the rates
+// exist to price how many coins exist.
+export const calculateExchangeRate = (supply) =>
+  Math.max(0.005, 1.2 * Math.exp(-0.000521 * supply));
+
+export const calculateInterestRate = (supply) =>
+  0.1 + 0.65 * Math.exp(-0.000486 * supply);
 
 // Replaces the former requirePositiveInt, which had no upper bound.
 export function isValidAmount(value) {

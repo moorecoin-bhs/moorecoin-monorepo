@@ -1,5 +1,6 @@
 import { apiBase } from "../app.js";
 import { escapeHtml } from "../format.js";
+import { fetchRates, renderRateBand } from "../rates.js";
 import {
   getEconomyConfig,
   validateAmount,
@@ -50,7 +51,13 @@ async function authedFetch(path, options = {}) {
   });
 }
 
+async function refreshRates() {
+  renderRateBand(await fetchRates(), economyConfig);
+}
+
 async function refreshOverview() {
+  await refreshRates();
+
   try {
     const response = await authedFetch("/admin/overview");
     if (!response.ok)

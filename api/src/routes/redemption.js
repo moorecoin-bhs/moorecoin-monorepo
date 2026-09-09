@@ -3,6 +3,7 @@ import { db, FieldValue } from "../firebase.js";
 import { verifyUser } from "../middleware/auth.js";
 import {
   calculateExchangeRate,
+  computeTotalSupply,
   isValidAmount,
   buildLedgerEntry,
 } from "../helpers/economy.js";
@@ -20,12 +21,17 @@ router.post("/create", verifyUser, async (request, response, next) => {
 
     const userRef = db.collection("users").doc(uid);
     const statsRef = db.collection("stats").doc("totals");
+    const centralBankRef = db.collection("stats").doc("centralBank");
     const ledgerRef = db.collection("ledger").doc();
 
     const extraCreditValue = await db.runTransaction(async (tx) => {
-      const [userSnap, statsSnap] = await Promise.all([
+      // The reserve is read only to price the redemption — this route
+      // does not write to the central bank doc. Redeemed coins are
+      // destroyed out of circulation, not returned to the vault.
+      const [userSnap, statsSnap, centralBankSnap] = await Promise.all([
         tx.get(userRef),
         tx.get(statsRef),
+        tx.get(centralBankRef),
       ]);
 
       if (!userSnap.exists) throw new Error("user_not_found");
@@ -35,7 +41,10 @@ router.post("/create", verifyUser, async (request, response, next) => {
         throw new Error("insufficient_balance");
 
       const circulating = statsSnap.data()?.moorecoinsCirculating ?? 0;
-      const exchangeRate = calculateExchangeRate(circulating);
+      const reserve = centralBankSnap.data()?.reserve ?? 0;
+      const exchangeRate = calculateExchangeRate(
+        computeTotalSupply(circulating, reserve),
+      );
       const creditValue = Number((amount * exchangeRate).toFixed(2));
 
       tx.update(userRef, {

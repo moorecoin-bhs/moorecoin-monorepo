@@ -3,6 +3,7 @@ import { db } from "../firebase.js";
 import {
   calculateInterestRate,
   calculateExchangeRate,
+  computeTotalSupply,
   MIN_AMOUNT,
   MAX_AMOUNT,
   PERIOD_MIN,
@@ -15,13 +16,21 @@ const router = Router();
 // Public — just exposes current reference rates, no user data.
 router.get("/rates", async (_, response, next) => {
   try {
-    const statsSnap = await db.collection("stats").doc("totals").get();
+    const [statsSnap, centralBankSnap] = await Promise.all([
+      db.collection("stats").doc("totals").get(),
+      db.collection("stats").doc("centralBank").get(),
+    ]);
+
     const circulating = statsSnap.data()?.moorecoinsCirculating ?? 0;
+    const reserve = centralBankSnap.data()?.reserve ?? 0;
+    const supply = computeTotalSupply(circulating, reserve);
 
     response.json({
       circulating,
-      interestRate: calculateInterestRate(circulating),
-      exchangeRate: calculateExchangeRate(circulating),
+      reserve,
+      supply,
+      interestRate: calculateInterestRate(supply),
+      exchangeRate: calculateExchangeRate(supply),
     });
   } catch (err) {
     next(err);
