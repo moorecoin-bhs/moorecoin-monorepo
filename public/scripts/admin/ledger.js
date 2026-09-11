@@ -1,5 +1,6 @@
 import { apiBase } from "../app.js";
 import { escapeHtml, formatCoins } from "../format.js";
+import { EVENTS, track } from "../analytics.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { app } from "../app.js";
 
@@ -35,7 +36,10 @@ export async function onShow() {
 function wireRefreshButton() {
   document
     .getElementById("admin-ledger-refresh-button")
-    ?.addEventListener("click", () => loadLedger());
+    ?.addEventListener("click", () => {
+      track(EVENTS.LEDGER_REFRESH, { area: "admin" });
+      loadLedger();
+    });
 }
 
 async function loadLedger() {

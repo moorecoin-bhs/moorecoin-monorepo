@@ -8,6 +8,7 @@ import {
   populatePeriodSelect,
 } from "../config.js";
 import { messageForError } from "../errors.js";
+import { EVENTS, track, trackFailure } from "../analytics.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { app } from "../app.js";
 
@@ -115,6 +116,7 @@ async function loadStudentOptions() {
 
 function wireForms() {
   wireSimpleForm(
+    "mint",
     "mint-form",
     "mint-amount-input",
     "mint-button",
@@ -127,6 +129,7 @@ function wireForms() {
   );
 
   wireSimpleForm(
+    "burn",
     "burn-form",
     "burn-amount-input",
     "burn-button",
@@ -168,13 +171,18 @@ function wireForms() {
       });
       const data = await response.json();
       if (!response.ok) {
+        trackFailure("distribute", data.error);
         errorEl.textContent = adminErrorMessage(data.error);
         return;
       }
+      // The recipient uid is deliberately not sent: which individual student
+      // was paid is exactly the kind of detail that must not reach GA4.
+      track(EVENTS.ADMIN_ACTION, { action: "distribute", amount });
       input.value = "";
       await refreshOverview();
     } catch (err) {
       console.error("Failed to distribute", err);
+      trackFailure("distribute", "network");
       errorEl.textContent = "Something went wrong. Try again.";
     } finally {
       button.disabled = false;
@@ -211,13 +219,16 @@ function wireForms() {
       });
       const data = await response.json();
       if (!response.ok) {
+        trackFailure("reward_period", data.error);
         errorEl.textContent = adminErrorMessage(data.error);
         return;
       }
+      track(EVENTS.ADMIN_ACTION, { action: "reward_period", amount, period });
       input.value = "";
       await refreshOverview();
     } catch (err) {
       console.error("Failed to reward period", err);
+      trackFailure("reward_period", "network");
       errorEl.textContent = "Something went wrong. Try again.";
     } finally {
       button.disabled = false;
@@ -225,7 +236,9 @@ function wireForms() {
   });
 }
 
-function wireSimpleForm(formId, inputId, buttonId, errorId, submitFn) {
+// `action` is the analytics name for what the form does — the DOM ids are
+// not a stable enough label to build a year-long report on.
+function wireSimpleForm(action, formId, inputId, buttonId, errorId, submitFn) {
   const form = document.getElementById(formId);
   if (!form) return;
 
@@ -249,13 +262,16 @@ function wireSimpleForm(formId, inputId, buttonId, errorId, submitFn) {
       const response = await submitFn(amount);
       const data = await response.json();
       if (!response.ok) {
+        trackFailure(action, data.error);
         errorEl.textContent = adminErrorMessage(data.error);
         return;
       }
+      track(EVENTS.ADMIN_ACTION, { action, amount });
       input.value = "";
       await refreshOverview();
     } catch (err) {
       console.error(`Failed to submit ${formId}`, err);
+      trackFailure(action, "network");
       errorEl.textContent = "Something went wrong. Try again.";
     } finally {
       button.disabled = false;

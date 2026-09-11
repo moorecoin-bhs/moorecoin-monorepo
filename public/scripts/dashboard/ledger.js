@@ -1,5 +1,6 @@
 import { apiBase } from "../app.js";
 import { escapeHtml, formatCoins } from "../format.js";
+import { EVENTS, track } from "../analytics.js";
 
 const TYPE_LABELS = {
   signup: "Signup bonus",
@@ -32,7 +33,10 @@ export async function onShow() {
 
 function wireRefreshButton() {
   const button = document.getElementById("ledger-refresh-button");
-  button?.addEventListener("click", () => loadLedger());
+  button?.addEventListener("click", () => {
+    track(EVENTS.LEDGER_REFRESH, { area: "dashboard" });
+    loadLedger();
+  });
 }
 
 async function loadLedger() {

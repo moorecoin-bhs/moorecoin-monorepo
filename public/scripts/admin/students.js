@@ -1,6 +1,7 @@
 import { apiBase } from "../app.js";
 import { escapeHtml, formatCoins, formatCredit, toNumber } from "../format.js";
 import { getEconomyConfig, populatePeriodSelect } from "../config.js";
+import { EVENTS, track, trackFailure } from "../analytics.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { app } from "../app.js";
 
@@ -184,12 +185,15 @@ async function handleMarkSubmitted(uid, button) {
     if (!response.ok)
       throw new Error(`Failed to mark submitted (${response.status})`);
 
+    track(EVENTS.ADMIN_ACTION, { action: "mark_extra_credit_submitted" });
+
     const student = studentsCache.find((s) => s.uid === uid);
     if (student) student.pendingExtraCredit = 0;
 
     renderStudents();
   } catch (err) {
     console.error("Failed to mark extra credit submitted", err);
+    trackFailure("mark_extra_credit_submitted", "network");
     button.disabled = false;
   }
 }
@@ -210,12 +214,18 @@ async function handleGiveOne(uid, button) {
       throw new Error(data.error || "failed");
     }
 
+    // Tracked as its own action rather than a distribute of 1: this is the
+    // one-click button in the student table, and the amount is never the
+    // interesting part of it.
+    track(EVENTS.ADMIN_ACTION, { action: "give_one" });
+
     const student = studentsCache.find((s) => s.uid === uid);
     if (student) student.moorecoins = (student.moorecoins ?? 0) + 1;
 
     renderStudents();
   } catch (err) {
     console.error("Failed to give coin", err);
+    trackFailure("give_one", err?.message ?? "network");
     button.textContent = "Failed";
     setTimeout(() => {
       button.textContent = originalText;
