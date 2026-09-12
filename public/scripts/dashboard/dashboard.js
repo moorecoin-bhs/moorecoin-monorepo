@@ -7,6 +7,7 @@ import {
   applyAmountBounds,
 } from "../config.js";
 import { messageForError } from "../errors.js";
+import { EVENTS, track, trackFailure } from "../analytics.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { app } from "../app.js";
 
@@ -299,9 +300,18 @@ async function handleCreate() {
     const data = await response.json();
 
     if (!response.ok) {
+      trackFailure("bond_create", data.error);
       errorEl.textContent = errorMessageFor(data.error);
       return;
     }
+
+    // The rate is recorded with the amount because it moves with circulating
+    // supply: without it, a later read of these events can't tell a change in
+    // student behaviour from a change in the terms they were offered.
+    track(EVENTS.BOND_CREATE, {
+      amount,
+      interest_rate: roundRate(currentRates?.interestRate),
+    });
 
     input.value = "";
     previewEl.innerHTML = "";
@@ -311,6 +321,7 @@ async function handleCreate() {
     await renderBalanceChart();
   } catch (err) {
     console.error("Failed to create bond", err);
+    trackFailure("bond_create", "network");
     errorEl.textContent = "Something went wrong. Try again.";
   } finally {
     button.disabled = false;
@@ -340,6 +351,7 @@ async function handleCollect(bondId, button) {
       // Four distinct failures reach here (not found / not yours / already
       // collected / not matured). Previously the button just reverted with
       // no explanation, which reads as the app being broken.
+      trackFailure("bond_collect", data.error);
       const errorEl = document.getElementById("bond-form-error");
       if (errorEl) errorEl.textContent = errorMessageFor(data.error);
       button.disabled = false;
@@ -348,15 +360,25 @@ async function handleCollect(bondId, button) {
       return;
     }
 
+    track(EVENTS.BOND_COLLECT, { payout: data.payout });
+
     currentUserData.user.moorecoins += data.payout;
     await refreshRates();
     await refreshBonds();
     await renderBalanceChart();
   } catch (err) {
     console.error("Failed to collect bond", err);
+    trackFailure("bond_collect", "network");
     button.disabled = false;
     button.textContent = "Collect";
   }
+}
+
+// Rates are floats that drift continuously. Two decimals matches what the
+// rate band shows the student, and keeps GA4 from treating every recomputed
+// rate as a distinct value.
+function roundRate(rate) {
+  return Number.isFinite(rate) ? Math.round(rate * 100) / 100 : null;
 }
 
 function errorMessageFor(code) {
@@ -415,9 +437,16 @@ async function handleRedeem() {
     const data = await response.json();
 
     if (!response.ok) {
+      trackFailure("redeem", data.error);
       errorEl.textContent = errorMessageFor(data.error);
       return;
     }
+
+    track(EVENTS.REDEEM, {
+      amount,
+      extra_credit: data.extraCreditValue,
+      exchange_rate: roundRate(currentRates?.exchangeRate),
+    });
 
     input.value = "";
     previewEl.innerHTML = "";
@@ -429,6 +458,7 @@ async function handleRedeem() {
     await renderBalanceChart();
   } catch (err) {
     console.error("Failed to redeem", err);
+    trackFailure("redeem", "network");
     errorEl.textContent = "Something went wrong. Try again.";
   } finally {
     button.disabled = false;

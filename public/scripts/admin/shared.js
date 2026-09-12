@@ -5,6 +5,13 @@ import {
   onAuthStateChanged,
   signOut,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import {
+  EVENTS,
+  track,
+  identify,
+  clearIdentity,
+  trackSectionView,
+} from "../analytics.js";
 
 const auth = getAuth(app);
 
@@ -26,6 +33,7 @@ export function initSidebar() {
 
     try {
       cachedUserData = await populateUserInfo(user);
+      identify(user.uid, cachedUserData.user);
 
       if (cachedUserData.user.role !== "admin") {
         window.location.href = homeForRole(cachedUserData.user.role);
@@ -51,6 +59,9 @@ export function initSidebar() {
 
 async function showActiveView() {
   const hash = location.hash || "#overview";
+
+  trackSectionView("admin", hash);
+
   const targetId = `view-${hash.slice(1)}`;
 
   document.querySelectorAll(".view").forEach((section) => {
@@ -111,6 +122,11 @@ function wireSignOut() {
   const signOutButton = document.getElementById("sign-out");
   signOutButton?.addEventListener("click", async () => {
     try {
+      // Logged before signOut(), while the identity is still attached, and
+      // cleared straight after: these are shared classroom machines, so the
+      // next student's events must not inherit this one's user id.
+      track(EVENTS.LOGOUT);
+      clearIdentity();
       await signOut(auth);
     } catch (err) {
       console.error("Sign out failed", err);

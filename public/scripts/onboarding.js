@@ -3,6 +3,7 @@ import { getEconomyConfig, populatePeriodSelect } from "./config.js";
 import { messageForError } from "./errors.js";
 import { showApiErrorBanner } from "./banner.js";
 import { homeForRole } from "./routes.js";
+import { EVENTS, track, identify, trackFailure } from "./analytics.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -24,6 +25,7 @@ onAuthStateChanged(auth, async (user) => {
 
   try {
     currentUserData = await fetchSession(await user.getIdToken());
+    identify(user.uid, currentUserData.user);
 
     if (currentUserData.user.finishedOnboarding) {
       window.location.href = homeForRole(currentUserData.user.role);
@@ -51,6 +53,10 @@ async function fetchSession(token) {
 }
 
 function goToStep(index) {
+  // Logged from the one function every step transition goes through, so the
+  // drop-off funnel can't miss a step someone adds a new button for later.
+  track(EVENTS.ONBOARDING_STEP, { step: index + 1 });
+
   steps.forEach((id, i) => {
     document.getElementById(id).classList.toggle("active", i === index);
   });
@@ -162,16 +168,22 @@ async function handleFinish() {
       const { error } = await response.json().catch(() => ({}));
       // This is the last step of onboarding; failing with nothing but a
       // console message leaves the student stuck with no idea why.
+      trackFailure("onboarding_finish", error);
       showApiErrorBanner(messageForError(error, { config: economyConfig }));
       finishButton.disabled = false;
       return;
     }
+
+    // Finishing onboarding, not the Google sign-in, is the moment a student
+    // becomes a real user of the app — so that is what counts as sign_up.
+    track(EVENTS.SIGN_UP, { method: "google", period: selectedPeriod });
 
     // Route by role, not straight to the student dashboard: an admin who
     // has just finished onboarding belongs in the admin panel.
     window.location.href = homeForRole(currentUserData?.user?.role);
   } catch (err) {
     console.error("Failed to finish onboarding", err);
+    trackFailure("onboarding_finish", "network");
     showApiErrorBanner("Couldn't finish setting up your account. Try again.");
     finishButton.disabled = false;
   }
