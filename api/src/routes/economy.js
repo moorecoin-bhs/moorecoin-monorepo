@@ -9,6 +9,7 @@ import {
   PERIOD_MIN,
   PERIOD_MAX,
   BOND_TERM_DAYS,
+  MIN_BOND_INTEREST,
 } from "../helpers/economy.js";
 
 const router = Router();
@@ -49,6 +50,7 @@ router.get("/config", (_, response) => {
     periodMin: PERIOD_MIN,
     periodMax: PERIOD_MAX,
     bondTermDays: BOND_TERM_DAYS,
+    minBondInterest: MIN_BOND_INTEREST,
   });
 });
 

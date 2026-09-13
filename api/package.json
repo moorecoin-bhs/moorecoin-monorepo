@@ -7,7 +7,9 @@
   },
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "backfill:user-bonds": "node scripts/backfill-user-bonds.js",
+    "backfill:bond-interest": "node scripts/backfill-bond-interest.js"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

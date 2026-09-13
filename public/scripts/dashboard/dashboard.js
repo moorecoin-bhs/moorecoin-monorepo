@@ -95,7 +95,11 @@ function updateBondPreview() {
     return;
   }
 
-  const interestAmount = Math.round(amount * currentRates.interestRate);
+  // Mirrors calculateInterestAmount on the server, floor included.
+  const interestAmount = Math.max(
+    economyConfig?.minBondInterest ?? 0,
+    Math.round(amount * currentRates.interestRate),
+  );
   const payout = amount + interestAmount;
 
   const termDays = economyConfig?.bondTermDays;

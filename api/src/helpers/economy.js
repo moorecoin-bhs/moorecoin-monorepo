@@ -23,6 +23,11 @@ export const MIN_AMOUNT = 1;
 // nothing else needs changing.
 export const MAX_AMOUNT = 10_000;
 
+// Every bond earns at least this much interest. Without a floor, rounding
+// wipes out interest on small bonds: 1 coin at a 41% rate is 0.41, which
+// rounds to 0, so the student locks the coin up for the full term for nothing.
+export const MIN_BOND_INTEREST = 1;
+
 export const PERIOD_MIN = 1;
 export const PERIOD_MAX = 6;
 
@@ -52,6 +57,9 @@ export const calculateExchangeRate = (supply) =>
 
 export const calculateInterestRate = (supply) =>
   0.1 + 0.65 * Math.exp(-0.000486 * supply);
+
+export const calculateInterestAmount = (principal, interestRate) =>
+  Math.max(MIN_BOND_INTEREST, Math.round(principal * interestRate));
 
 // Replaces the former requirePositiveInt, which had no upper bound.
 export function isValidAmount(value) {

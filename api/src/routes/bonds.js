@@ -3,6 +3,7 @@ import { db, FieldValue } from "../firebase.js";
 import { verifyUser, requireAdmin } from "../middleware/auth.js";
 import {
   BOND_TERM_MS,
+  calculateInterestAmount,
   calculateInterestRate,
   computeTotalSupply,
   isValidAmount,
@@ -41,6 +42,8 @@ router.post("/create", verifyUser, async (request, response, next) => {
     const statsRef = db.collection("stats").doc("totals");
     const centralBankRef = db.collection("stats").doc("centralBank");
     const bondRef = db.collection("bonds").doc();
+    // Same id under the user, so the copy is found by the bond id alone.
+    const userBondRef = userRef.collection("bonds").doc(bondRef.id);
     const ledgerRef = db.collection("ledger").doc();
 
     const bond = await db.runTransaction(async (tx) => {
@@ -66,7 +69,7 @@ router.post("/create", verifyUser, async (request, response, next) => {
       const interestRate = calculateInterestRate(
         computeTotalSupply(circulating, reserve),
       );
-      const interestAmount = Math.round(amount * interestRate);
+      const interestAmount = calculateInterestAmount(amount, interestRate);
 
       const outstandingLiability =
         centralBankSnap.data()?.outstandingInterestLiability ?? 0;
@@ -95,6 +98,7 @@ router.post("/create", verifyUser, async (request, response, next) => {
       };
 
       tx.set(bondRef, newBond);
+      tx.set(userBondRef, newBond);
       tx.update(userRef, { moorecoins: FieldValue.increment(-amount) });
 
       tx.set(
@@ -156,6 +160,7 @@ router.post("/collect", verifyUser, async (request, response, next) => {
     const statsRef = db.collection("stats").doc("totals");
     const centralBankRef = db.collection("stats").doc("centralBank");
     const bondRef = db.collection("bonds").doc(bondId);
+    const userBondRef = userRef.collection("bonds").doc(bondId);
     const ledgerRef = db.collection("ledger").doc();
 
     const payout = await db.runTransaction(async (tx) => {
@@ -181,7 +186,11 @@ router.post("/collect", verifyUser, async (request, response, next) => {
 
       const payoutAmount = bond.principal + bond.interestAmount;
 
-      tx.update(bondRef, { collected: true, collectedAt: Date.now() });
+      // /bonds stays the source of truth; the copy under the user must
+      // change in the same transaction or the dashboard shows it uncollected.
+      const collectedFields = { collected: true, collectedAt: Date.now() };
+      tx.update(bondRef, collectedFields);
+      tx.set(userBondRef, { ...bond, ...collectedFields });
       tx.update(userRef, { moorecoins: FieldValue.increment(payoutAmount) });
 
       tx.set(
@@ -232,9 +241,12 @@ router.post("/collect", verifyUser, async (request, response, next) => {
 
 router.get("/mine", verifyUser, async (request, response, next) => {
   try {
+    // Reads the per-user copy written alongside each /bonds doc, so this
+    // never scans the whole collection.
     const snapshot = await db
+      .collection("users")
+      .doc(request.uid)
       .collection("bonds")
-      .where("uid", "==", request.uid)
       .get();
     const bonds = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     response.json({ bonds }); // a user's own bonds — fine to include their own name/email
