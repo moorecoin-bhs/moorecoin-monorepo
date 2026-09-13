@@ -3,6 +3,7 @@ import { db, FieldValue } from "../firebase.js";
 import { verifyUser, requireAdmin } from "../middleware/auth.js";
 import {
   BOND_TERM_MS,
+  calculateInterestAmount,
   calculateInterestRate,
   computeTotalSupply,
   isValidAmount,
@@ -68,7 +69,7 @@ router.post("/create", verifyUser, async (request, response, next) => {
       const interestRate = calculateInterestRate(
         computeTotalSupply(circulating, reserve),
       );
-      const interestAmount = Math.round(amount * interestRate);
+      const interestAmount = calculateInterestAmount(amount, interestRate);
 
       const outstandingLiability =
         centralBankSnap.data()?.outstandingInterestLiability ?? 0;
