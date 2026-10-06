@@ -23,9 +23,12 @@ export const MIN_AMOUNT = 1;
 // nothing else needs changing.
 export const MAX_AMOUNT = 10_000;
 
-// Every bond earns at least this much interest. Without a floor, rounding
-// wipes out interest on small bonds: 1 coin at a 41% rate is 0.41, which
-// rounds to 0, so the student locks the coin up for the full term for nothing.
+// A bond must earn at least this much interest at the current rate, or it is
+// rejected. Rounding wipes out interest on small bonds (1 coin at a 41% rate
+// is 0.41, which rounds to 0), and this used to be a floor that topped such
+// bonds up to 1 — but that paid a 1-coin bond 100%, so students farmed many
+// 1-coin bonds. Now the principal must be large enough to earn it honestly;
+// see minBondPrincipal.
 export const MIN_BOND_INTEREST = 1;
 
 export const PERIOD_MIN = 1;
@@ -59,7 +62,27 @@ export const calculateInterestRate = (supply) =>
   0.1 + 0.65 * Math.exp(-0.000486 * supply);
 
 export const calculateInterestAmount = (principal, interestRate) =>
-  Math.max(MIN_BOND_INTEREST, Math.round(principal * interestRate));
+  Math.round(principal * interestRate);
+
+// Smallest principal whose interest reaches MIN_BOND_INTEREST at this rate.
+// Starts from the algebraic estimate and steps to the exact boundary using
+// calculateInterestAmount itself, so float error in the estimate can't make
+// this disagree with what /bonds/create accepts.
+export function minBondPrincipal(interestRate) {
+  if (!(interestRate > 0)) return null;
+  let principal = Math.max(
+    MIN_AMOUNT,
+    Math.ceil((MIN_BOND_INTEREST - 0.5) / interestRate),
+  );
+  while (calculateInterestAmount(principal, interestRate) < MIN_BOND_INTEREST)
+    principal++;
+  while (
+    principal > MIN_AMOUNT &&
+    calculateInterestAmount(principal - 1, interestRate) >= MIN_BOND_INTEREST
+  )
+    principal--;
+  return principal;
+}
 
 // Replaces the former requirePositiveInt, which had no upper bound.
 export function isValidAmount(value) {

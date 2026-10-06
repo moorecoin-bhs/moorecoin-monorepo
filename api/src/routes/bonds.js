@@ -3,6 +3,7 @@ import { db, FieldValue } from "../firebase.js";
 import { verifyUser, requireAdmin } from "../middleware/auth.js";
 import {
   BOND_TERM_MS,
+  MIN_BOND_INTEREST,
   calculateInterestAmount,
   calculateInterestRate,
   computeTotalSupply,
@@ -17,6 +18,7 @@ const router = Router();
 const CREATE_ERROR_STATUS = {
   user_not_found: 404,
   insufficient_balance: 400,
+  bond_too_small: 400,
   reserve_would_be_insufficient: 409,
 };
 
@@ -70,6 +72,12 @@ router.post("/create", verifyUser, async (request, response, next) => {
         computeTotalSupply(circulating, reserve),
       );
       const interestAmount = calculateInterestAmount(amount, interestRate);
+
+      // Checked here rather than with isValidAmount because the minimum
+      // moves with the rate, which is only known inside the transaction.
+      if (interestAmount < MIN_BOND_INTEREST) {
+        throw new Error("bond_too_small");
+      }
 
       const outstandingLiability =
         centralBankSnap.data()?.outstandingInterestLiability ?? 0;

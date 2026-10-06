@@ -95,11 +95,14 @@ function updateBondPreview() {
     return;
   }
 
-  // Mirrors calculateInterestAmount on the server, floor included.
-  const interestAmount = Math.max(
-    economyConfig?.minBondInterest ?? 0,
-    Math.round(amount * currentRates.interestRate),
-  );
+  const tooSmall = bondTooSmallMessage(amount);
+  if (tooSmall) {
+    previewEl.textContent = tooSmall;
+    return;
+  }
+
+  // Mirrors calculateInterestAmount on the server.
+  const interestAmount = Math.round(amount * currentRates.interestRate);
   const payout = amount + interestAmount;
 
   const termDays = economyConfig?.bondTermDays;
@@ -108,6 +111,14 @@ function updateBondPreview() {
   previewEl.innerHTML =
     `Matures ${termText} for approximately <strong>${payout.toLocaleString()} coins</strong> ` +
     `(+${interestAmount.toLocaleString()} interest at current rate)`;
+}
+
+// The server rejects bonds whose interest would round to nothing, and that
+// minimum moves with the rate, so /economy/rates reports the current one.
+function bondTooSmallMessage(amount) {
+  const min = currentRates?.minBondAmount;
+  if (!Number.isInteger(min) || amount >= min) return null;
+  return `At the current rate, bonds must be at least ${min.toLocaleString()} coins to earn interest.`;
 }
 
 function updateRedeemPreview() {
@@ -288,6 +299,12 @@ async function handleCreate() {
     return;
   }
 
+  const tooSmall = bondTooSmallMessage(amount);
+  if (tooSmall) {
+    errorEl.textContent = tooSmall;
+    return;
+  }
+
   button.disabled = true;
 
   try {
@@ -305,6 +322,9 @@ async function handleCreate() {
 
     if (!response.ok) {
       trackFailure("bond_create", data.error);
+      // The minimum moved since rates were last fetched; pick up the new
+      // one so the message below names it.
+      if (data.error === "bond_too_small") await refreshRates();
       errorEl.textContent = errorMessageFor(data.error);
       return;
     }
@@ -389,6 +409,9 @@ function errorMessageFor(code) {
   return messageForError(code, {
     config: economyConfig,
     overrides: {
+      bond_too_small:
+        bondTooSmallMessage(0) ??
+        "That bond is too small to earn any interest at the current rate.",
       reserve_would_be_insufficient:
         "The central bank reserve can't cover this bond's interest right now.",
     },

@@ -38,6 +38,8 @@ const STATIC_MESSAGES = {
 
   // economy
   insufficient_balance: "You don't have enough Moorecoins for that.",
+  bond_too_small:
+    "That bond is too small to earn any interest at the current rate.",
   reserve_insufficient: "The reserve doesn't have enough coins for that.",
   reserve_would_be_insufficient:
     "That would leave the reserve unable to cover bonded principal and outstanding interest.",
