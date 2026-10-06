@@ -10,6 +10,7 @@ import {
   PERIOD_MAX,
   BOND_TERM_DAYS,
   MIN_BOND_INTEREST,
+  minBondPrincipal,
 } from "../helpers/economy.js";
 
 const router = Router();
@@ -25,13 +26,16 @@ router.get("/rates", async (_, response, next) => {
     const circulating = statsSnap.data()?.moorecoinsCirculating ?? 0;
     const reserve = centralBankSnap.data()?.reserve ?? 0;
     const supply = computeTotalSupply(circulating, reserve);
+    const interestRate = calculateInterestRate(supply);
 
     response.json({
       circulating,
       reserve,
       supply,
-      interestRate: calculateInterestRate(supply),
+      interestRate,
       exchangeRate: calculateExchangeRate(supply),
+      // Moves with the rate, so it lives here rather than in /config.
+      minBondAmount: minBondPrincipal(interestRate),
     });
   } catch (err) {
     next(err);
