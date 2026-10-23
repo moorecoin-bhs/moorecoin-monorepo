@@ -14,12 +14,18 @@ const TYPE_LABELS = {
   redemption: "Redeemed",
   mint: "Central bank mint",
   burn: "Central bank burn",
+  revoke: "Taken by teacher",
   stock_buy: "Stock purchase",
   stock_sell: "Stock sale",
 };
 
 const POSITIVE_TYPES = new Set(["signup", "bond_collected", "reward", "mint"]);
-const NEGATIVE_TYPES = new Set(["bond_created", "redemption", "burn"]);
+const NEGATIVE_TYPES = new Set([
+  "bond_created",
+  "redemption",
+  "burn",
+  "revoke",
+]);
 
 let initialized = false;
 

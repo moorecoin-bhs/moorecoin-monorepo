@@ -1,18 +1,28 @@
 import { apiBase } from "../app.js";
 import { escapeHtml, formatCoins, formatCredit, toNumber } from "../format.js";
-import { getEconomyConfig, populatePeriodSelect } from "../config.js";
+import {
+  getEconomyConfig,
+  populatePeriodSelect,
+  validateAmount,
+} from "../config.js";
 import { EVENTS, track, trackFailure } from "../analytics.js";
+import { messageForError } from "../errors.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { app } from "../app.js";
 
 const auth = getAuth(app);
 
 let studentsCache = [];
+// Per-student amount typed into the adjust input, keyed by uid, so it
+// survives the full re-render that follows every action.
+const adjustAmounts = new Map();
+let economyConfig = null;
 
 export async function init() {
+  economyConfig = await getEconomyConfig();
   populatePeriodSelect(
     document.getElementById("filter-period"),
-    await getEconomyConfig(),
+    economyConfig,
     { allLabel: "All periods" },
   );
   wireControls();
@@ -114,6 +124,8 @@ function renderStudents() {
       const pending = toNumber(student.pendingExtraCredit);
       const uid = escapeHtml(student.uid);
       const pendingLabel = formatCredit(pending);
+      const coins = toNumber(student.moorecoins);
+      const amount = adjustAmounts.get(student.uid) ?? 1;
 
       return `
         <div class="student-table-row" data-uid="${uid}">
@@ -126,7 +138,11 @@ function renderStudents() {
             ${pending > 0 ? `<button class="student-action-button copy-pending" data-value="${pendingLabel}">Copy</button>` : ""}
           </span>
           <span class="student-row-actions">
-            <button class="student-action-button give-one" data-uid="${uid}">+1 Coin</button>
+            <span class="student-adjust" data-uid="${uid}">
+              <button class="student-adjust-button take" title="Take coins" aria-label="Take coins" ${coins < amount ? "disabled" : ""}>&minus;</button>
+              <input class="student-adjust-input" type="number" min="1" step="1" value="${escapeHtml(amount)}" aria-label="Amount" />
+              <button class="student-adjust-button give" title="Give coins" aria-label="Give coins">+</button>
+            </span>
             ${pending > 0 ? `<button class="student-action-button mark-submitted" data-uid="${uid}">Mark submitted</button>` : ""}
           </span>
         </div>
@@ -144,11 +160,40 @@ function renderStudents() {
     );
   });
 
-  body.querySelectorAll(".give-one").forEach((button) => {
-    button.addEventListener("click", () =>
-      handleGiveOne(button.dataset.uid, button),
+  body.querySelectorAll(".student-adjust").forEach((control) => {
+    const uid = control.dataset.uid;
+    const input = control.querySelector(".student-adjust-input");
+    const take = control.querySelector(".take");
+    const give = control.querySelector(".give");
+    const balance = toNumber(
+      studentsCache.find((s) => s.uid === uid)?.moorecoins,
+    );
+
+    input.addEventListener("input", () => {
+      const amount = Number(input.value);
+      const valid = isValidAmount(amount);
+      if (valid) adjustAmounts.set(uid, amount);
+      input.classList.toggle("invalid", !valid);
+      give.disabled = !valid;
+      take.disabled = !valid || balance < amount;
+    });
+
+    // Enter gives, matching the "+" being the common case.
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !give.disabled) give.click();
+    });
+
+    give.addEventListener("click", () =>
+      handleAdjust(uid, Number(input.value), control),
+    );
+    take.addEventListener("click", () =>
+      handleAdjust(uid, -Number(input.value), control),
     );
   });
+}
+
+function isValidAmount(amount) {
+  return validateAmount(amount, economyConfig) === null;
 }
 
 function lastNameOf(name) {
@@ -198,42 +243,69 @@ async function handleMarkSubmitted(uid, button) {
   }
 }
 
-async function handleGiveOne(uid, button) {
-  button.disabled = true;
-  const originalText = button.textContent;
-  button.textContent = "...";
+// Short wording for the narrow coins cell; the full message goes in the
+// cell's tooltip.
+const ADJUST_ERROR_OVERRIDES = {
+  insufficient_balance: "Not enough coins",
+  reserve_would_be_insufficient: "Reserve too low",
+  invalid_amount: "Invalid amount",
+};
+
+// delta > 0 gives coins from the reserve, delta < 0 takes them back.
+async function handleAdjust(uid, delta, control) {
+  const amount = Math.abs(delta);
+  if (!isValidAmount(amount)) return;
+
+  const buttons = control.querySelectorAll("button");
+  buttons.forEach((b) => (b.disabled = true));
+
+  const giving = delta > 0;
+  const action = giving ? "distribute" : "revoke";
 
   try {
-    const response = await authedFetch("/admin/central-bank/distribute", {
+    const response = await authedFetch(`/admin/central-bank/${action}`, {
       method: "POST",
-      body: JSON.stringify({ uid, amount: 1 }),
+      body: JSON.stringify({ uid, amount }),
     });
 
     if (!response.ok) {
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       throw new Error(data.error || "failed");
     }
 
-    // Tracked as its own action rather than a distribute of 1: this is the
-    // one-click button in the student table, and the amount is never the
-    // interesting part of it.
-    track(EVENTS.ADMIN_ACTION, { action: "give_one" });
+    track(EVENTS.ADMIN_ACTION, {
+      action: giving ? "give_coins" : "take_coins",
+    });
 
     const student = studentsCache.find((s) => s.uid === uid);
-    if (student) student.moorecoins = (student.moorecoins ?? 0) + 1;
+    if (student) student.moorecoins = toNumber(student.moorecoins) + delta;
 
     renderStudents();
   } catch (err) {
-    console.error("Failed to give coin", err);
-    trackFailure("give_one", err?.message ?? "network");
-    button.textContent = "Failed";
-    setTimeout(() => {
-      button.textContent = originalText;
-      button.disabled = false;
-    }, 1200);
-    return;
+    console.error(`Failed to ${giving ? "give" : "take"} coins`, err);
+    trackFailure(
+      giving ? "give_coins" : "take_coins",
+      err?.message ?? "network",
+    );
+    const code = err?.message;
+    showAdjustError(
+      control,
+      messageForError(code, {
+        config: economyConfig,
+        overrides: ADJUST_ERROR_OVERRIDES,
+      }),
+      messageForError(code, { config: economyConfig }),
+    );
   }
+}
 
-  button.textContent = originalText;
-  button.disabled = false;
+function showAdjustError(control, message, detail) {
+  const row = control.closest(".student-table-row");
+  const coinsCell = row?.querySelector(".student-coins");
+  if (!coinsCell) return renderStudents();
+
+  coinsCell.textContent = message;
+  coinsCell.title = detail;
+  coinsCell.classList.add("error");
+  setTimeout(renderStudents, 2500);
 }

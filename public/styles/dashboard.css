@@ -666,7 +666,7 @@ li > a {
 .student-table-header,
 .student-table-row {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 0.6fr 0.8fr 1fr 1.6fr;
+  grid-template-columns: 1.5fr 0.9fr 0.5fr 0.8fr 1fr 2fr;
   gap: 0.75rem;
   align-items: center;
   padding: 0.6rem 0.75rem;
@@ -756,4 +756,75 @@ li > a {
 .student-action-button.copied {
   border-color: var(--accent-color);
   color: var(--accent-color);
+}
+
+.student-coins.error {
+  color: #ff6b6b;
+  font-size: 0.75rem;
+}
+
+.student-adjust {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.student-adjust-button {
+  font-family: var(--main-font);
+  font-size: 0.95rem;
+  line-height: 1;
+  width: 1.9rem;
+  height: 1.7rem;
+  border: none;
+  background: transparent;
+  color: var(--foreground-color);
+  cursor: pointer;
+}
+
+.student-adjust-button.give:hover:not(:disabled) {
+  background: rgba(255, 204, 34, 0.12);
+  color: var(--accent-color);
+}
+
+.student-adjust-button.take:hover:not(:disabled) {
+  background: rgba(255, 107, 107, 0.12);
+  color: #ff6b6b;
+}
+
+.student-adjust-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.student-adjust-input {
+  font-family: var(--main-font);
+  font-size: 0.8rem;
+  width: 3.2rem;
+  height: 1.7rem;
+  padding: 0;
+  text-align: center;
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: var(--foreground-color);
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.student-adjust-input::-webkit-outer-spin-button,
+.student-adjust-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.student-adjust-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.student-adjust-input.invalid {
+  color: #ff6b6b;
 }
