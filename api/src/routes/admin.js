@@ -222,6 +222,73 @@ router.post("/central-bank/distribute", async (request, response, next) => {
   }
 });
 
+// --- take coins from one student back into the reserve ---
+// The inverse of distribute: coins leave the student's balance and return
+// to the reserve, so total supply (circulating + reserve) is unchanged.
+// moorecoinsIssued is a running total of coins handed out and is left alone.
+router.post("/central-bank/revoke", async (request, response, next) => {
+  try {
+    const uid = request.body?.uid;
+    const amount = Number(request.body?.amount);
+
+    if (!isValidUid(uid)) {
+      return response.status(400).json({ error: "invalid_uid" });
+    }
+    if (!isValidAmount(amount)) {
+      return response.status(400).json({ error: "invalid_amount" });
+    }
+
+    const userRef = db.collection("users").doc(uid);
+    const statsRef = db.collection("stats").doc("totals");
+    const centralBankRef = db.collection("stats").doc("centralBank");
+    const ledgerRef = db.collection("ledger").doc();
+
+    await db.runTransaction(async (tx) => {
+      const userSnap = await tx.get(userRef);
+      if (!userSnap.exists) throw new Error("user_not_found");
+      const user = userSnap.data();
+
+      // Coins locked in a bond aren't in this balance, so they can't be
+      // taken — only liquid coins the student currently holds.
+      if ((user.moorecoins ?? 0) < amount)
+        throw new Error("insufficient_balance");
+
+      tx.update(userRef, { moorecoins: FieldValue.increment(-amount) });
+
+      tx.set(
+        statsRef,
+        { moorecoinsCirculating: FieldValue.increment(-amount) },
+        { merge: true },
+      );
+
+      tx.set(
+        centralBankRef,
+        { reserve: FieldValue.increment(amount) },
+        { merge: true },
+      );
+
+      tx.set(ledgerRef, {
+        ...buildLedgerEntry({
+          type: "revoke",
+          from: { ...user, uid },
+          to: "centralBank",
+          amount,
+          metadata: { action: "revoke" },
+        }),
+        timestamp: FieldValue.serverTimestamp(),
+      });
+    });
+
+    response.json({ revoked: amount });
+  } catch (err) {
+    if (err.message === "user_not_found")
+      return response.status(404).json({ error: "user_not_found" });
+    if (err.message === "insufficient_balance")
+      return response.status(400).json({ error: "insufficient_balance" });
+    next(err);
+  }
+});
+
 // --- reward every student in a period the same amount ---
 router.post("/central-bank/reward", async (request, response, next) => {
   try {
