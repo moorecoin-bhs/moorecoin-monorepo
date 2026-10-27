@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="styles/shared.css" />
     <link rel="stylesheet" href="styles/dashboard.css" />
     <link rel="stylesheet" href="styles/google-button.css" />
+    <link rel="stylesheet" href="styles/markets.css" />
   </head>
   <body>
     <div class="sidebar">
@@ -22,6 +23,7 @@
 
       <ul>
         <li class="active"><a href="#overview">Overview</a></li>
+        <li><a href="#markets">Markets</a></li>
         <li><a href="#students">Students</a></li>
         <li><a href="#ledger">Ledger</a></li>
       </ul>
@@ -223,6 +225,51 @@
             </button>
           </form>
           <span class="bond-form-error" id="burn-error"></span>
+        </div>
+      </section>
+
+      <section id="view-markets" class="view">
+        <h2>Markets</h2>
+
+        <div class="tv">
+          <div class="tv-toolbar">
+            <div class="tv-intervals" id="tv-intervals" role="group" aria-label="Candle interval"></div>
+            <span class="tv-toolbar-divider"></span>
+            <div class="tv-scale" role="group" aria-label="Price scale">
+              <button class="tv-tool" id="tv-fit" type="button">Fit</button>
+              <button class="tv-tool" id="tv-log" type="button" aria-pressed="false">Log</button>
+            </div>
+            <span class="tv-toolbar-spacer"></span>
+            <span class="tv-updated" id="tv-updated"></span>
+            <button class="ledger-refresh-button" id="tv-refresh" type="button">
+              Refresh
+            </button>
+          </div>
+
+          <div class="tv-body">
+            <div class="tv-main">
+              <div class="tv-legend" id="tv-legend">
+                <div class="tv-legend-title">
+                  <span class="tv-legend-symbol" id="tv-legend-symbol">—</span>
+                  <span class="tv-legend-name" id="tv-legend-name"></span>
+                  <span class="tv-legend-interval" id="tv-legend-interval"></span>
+                </div>
+                <div class="tv-legend-ohlc" id="tv-legend-ohlc"></div>
+              </div>
+              <div class="tv-chart" id="tv-chart">
+                <p class="tv-status" id="tv-status">Loading…</p>
+              </div>
+            </div>
+
+            <aside class="tv-watchlist">
+              <div class="tv-watchlist-header">
+                <span>Symbol</span>
+                <span>Last</span>
+                <span>Chg%</span>
+              </div>
+              <ul class="tv-watchlist-body" id="tv-watchlist"></ul>
+            </aside>
+          </div>
         </div>
       </section>
 

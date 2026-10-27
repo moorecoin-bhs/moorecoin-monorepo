@@ -8,6 +8,7 @@ import {
   buildLedgerEntry,
   computeFreeReserve,
 } from "../helpers/economy.js";
+import { buildHistory, ledgerDelta } from "../helpers/history.js";
 
 const router = Router();
 router.use(verifyUser, requireAdmin); // everything below is admin-only
@@ -34,6 +35,67 @@ router.get("/overview", async (_, response, next) => {
     );
 
     response.json({ totals, centralBank, freeReserve });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- economy history, for the markets charts ---
+// Reads the whole ledger on every call. That is fine at classroom scale (a
+// few thousand entries); if it ever isn't, snapshot daily instead.
+router.get("/history", async (_, response, next) => {
+  try {
+    const [ledgerSnap, usersSnap, statsSnap, centralBankSnap] =
+      await Promise.all([
+        db
+          .collection("ledger")
+          .select(
+            "type",
+            "amount",
+            "toUid",
+            "timestamp",
+            "metadata.action",
+            "metadata.interestAmount",
+          )
+          .get(),
+        db.collection("users").select("createdAt").get(),
+        db.collection("stats").doc("totals").get(),
+        db.collection("stats").doc("centralBank").get(),
+      ]);
+
+    const events = [];
+
+    ledgerSnap.docs.forEach((doc) => {
+      const entry = doc.data();
+      const t = entry.timestamp?.toMillis?.();
+      if (!Number.isFinite(t)) return;
+      events.push({
+        t,
+        delta: ledgerDelta(entry),
+        volume: Math.abs(Number(entry.amount) || 0),
+      });
+    });
+
+    // Users come from createdAt, not signup entries: the signup entry is
+    // only written when the free reserve could cover the bonus.
+    usersSnap.docs.forEach((doc) => {
+      const t = doc.data().createdAt?.toMillis?.();
+      if (!Number.isFinite(t)) return;
+      events.push({ t, delta: { users: 1 }, volume: 0 });
+    });
+
+    const totals = statsSnap.data() ?? {};
+    const centralBank = centralBankSnap.data() ?? {};
+
+    const history = buildHistory(events, {
+      circulating: totals.moorecoinsCirculating ?? 0,
+      reserve: centralBank.reserve ?? 0,
+      bonded: totals.moorecoinsBonded ?? 0,
+      redeemed: totals.moorecoinsRedeemed ?? 0,
+      users: totals.users ?? 0,
+    });
+
+    response.json({ ...history, now: Date.now() });
   } catch (err) {
     next(err);
   }

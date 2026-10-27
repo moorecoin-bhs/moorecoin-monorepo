@@ -17,6 +17,7 @@ const auth = getAuth(app);
 
 const sections = {
   "#overview": () => import("./overview.js"),
+  "#markets": () => import("./markets.js"),
   "#students": () => import("./students.js"),
   "#ledger": () => import("./ledger.js"),
 };
